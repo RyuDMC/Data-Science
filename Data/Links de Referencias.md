@@ -8,5 +8,8 @@ Trabajos previos:
    - https://eltoque.com/venta-de-casas-en-la-habana-desde-menos-de-dos-mil-hasta-un-millon-de-dolares
  - Mercado de vehículos eléctricos
    - https://postdataclub.github.io/issues/201712/en-dos-ruedas-y-con-electricidad.html
+   - https://www.chicagotribune.com/2026/08/05/cuba-flexibiliza-tenencia-e-importacin-de-vehculos-sobre-todo-elctricos-tras-cerco-energtico/
+   - https://oncubanews.com/cuba/economia/triciclos-electricos-en-la-habana-la-alternativa-a-la-crisis-energetica/
+   - https://oncubanews.com/cuba/economia/mas-de-400-triciclos-electricos-operan-en-cuba-como-alternativa-a-otros-medios-muy-impactados-por-las-carencias/
 - Mercado Automovilístico 
  - https://www.cubainformacion.tv/cuba/20140108/54140/54140-el-mercado-automovilistico-en-cuba-surrealismo-antillano
