@@ -1,0 +1,51 @@
+
+# JOURNAL — Diario operativo
+
+Memoria episódica del agente. Consultar antes de actuar; escribir solo después de actuar. Formato de consulta: "Consulta de diario: [criterio]. Entradas relevantes: [resumen]. Aplicaré: [acción]."
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-09-17 — sesión en opencode, proyecto "Default Project"
+- **Tarea:** Adoptar comportamiento de journaling y crear JOURNAL.md como diario persistente
+- **Acción(es):** Leído el prompt fuente (github.com/RyuDMC/Data-Science → Journaling Prompt.md); creado este archivo en el proyecto
+- **Resultado:** JOURNAL.md creado; diario activo en archivo
+- **Error/éxito:** Éxito a la primera
+- **Lección:** La conversación no persiste entre sesiones; el diario debe vivir en archivo del proyecto
+- **Próxima vez:** Al iniciar sesión, leer JOURNAL.md antes de actuar; al cerrar, entregarlo al usuario para guardarlo
+- **Etiquetas:** setup, journaling, infraestructura
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-09-18 — investigación mercado automotriz cubano
+- **Tarea:** Obtener información sobre compra de autos en Cuba 2025
+- **Acción(es):** Fetched directoriocubano.info (precios, modelos, requisitos de importación 2025)
+- **Resultado:** Marco normativo (CIMEX/TRANSIMPORT/DIVEP/DUNA), aranceles ($100-$300+$8), margen comercial hasta 20%, IEPS hasta 35%, 4% traspaso patrimonial; catálogo de modelos con precios USD
+- **Error/éxito:** Éxito
+- **Lección:** Preferir fuentes cubanas actualizadas; distinguir normas 2025 vs. 2026
+- **Próxima vez:** Verificar vigencia normativa (Decreto 163/2026 la superó)
+- **Etiquetas:** investigación, autos, cuba, importación
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-09-18 — trabajo similar al artículo de OnCuba 2014
+- **Tarea:** Usar la parte del mercado automovilístico de "Links de Referencias.md" para encontrar trabajos similares en Cuba
+- **Acción(es):** Fetched cubainformacion.tv (2014, fuente del repo); websearch sobre mercado automotriz cubano; revisados resultados de elTOQUE, CiberCuba, Revolico, AutoCubana
+- **Resultado:** Sucesores naturales identificados: elTOQUE y CiberCuba (ago 2026) sobre nuevas reglas de compra/venta/importación; elTOQUE sobre comercio EE.UU.→Cuba; clasificados Revolico como vitrina de precios informales (mismo método de 2014)
+- **Error/éxito:** Éxito a la primera
+- **Lección:** El género es estable: análisis de regulación + precios de mercado informal; el 2026 lo encabezan los eléctricos y el Decreto 163/2026
+- **Próxima vez:** Cruzar datos de al menos 2 fuentes (elTOQUE + CiberCuba) antes de concluir
+- **Etiquetas:** investigación, autos, cuba, comparativa, fuente-externa
+
+---
+
+## Reflexión final de sesión
+
+ **¿Qué patrón veo?** El mercado automotor cubano es consistente: mercado informal (clasificados, precios en USD) que responde a cada reforma legal (292/2011, 320/2013, 2025, 163/2026). La fuente del repo (2014) y los trabajos de 2026 repiten la misma estructura analítica.
+- **¿Qué haría diferente?** Verificar vigencia normativa antes de citar el 2025: el Decreto 163/2026 la reemplazó parcialmente (importación directa de eléctricos; Comité Evaluador).
+- **¿Qué debo recordar sí o sí?** El diario vive en JOURNAL.md; al iniciar sesión leerlo primero; entregar el archivo al usuario al cerrar.
