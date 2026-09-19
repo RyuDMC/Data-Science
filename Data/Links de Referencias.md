@@ -5,12 +5,20 @@ Trabajos previos:
    - https://oncubanews.com/cuba/economia/cuba-tiene-un-deficit-de-mas-de-800-000-viviendas-y-solo-ha-construido-2728-este-ano/
    - https://oncubanews.com/cuba/economia/construccion-de-viviendas-en-cuba-estrategias-sin-resultado/
    - https://casasoasis.com/es/mercado-inmobiliario-cuba
+   - https://cuba.wanuncios.com/
    - https://eltoque.com/venta-de-casas-en-la-habana-desde-menos-de-dos-mil-hasta-un-millon-de-dolares
  - Mercado de vehículos eléctricos
    - https://postdataclub.github.io/issues/201712/en-dos-ruedas-y-con-electricidad.html
    - https://www.chicagotribune.com/2026/08/05/cuba-flexibiliza-tenencia-e-importacin-de-vehculos-sobre-todo-elctricos-tras-cerco-energtico/
    - https://oncubanews.com/cuba/economia/triciclos-electricos-en-la-habana-la-alternativa-a-la-crisis-energetica/
    - https://oncubanews.com/cuba/economia/mas-de-400-triciclos-electricos-operan-en-cuba-como-alternativa-a-otros-medios-muy-impactados-por-las-carencias/
+   - https://www.revolico.com/
+   - https://www.timbirichi.com/vehiculos-y-piezas/patinetas-carriolas
+   - por ver:
+      - https://d-cuba.com/actualidad/comprar-bicicletas-electricas-cuba-2026
+      - https://d-cuba.com/actualidad/bicicletas-electricas-cuba-precios-envio#google_vignette
+      - https://noticiascuba.net/precios-triciclos-motorinas-minerva-cuba/#google_vignette
+      - https://noticiascuba.net/comprar-triciclos-electricos-en-cuba-tiendas-precios-y-envio-en-2024/#google_vignette
 - Mercado Automovilístico 
   - https://www.cubainformacion.tv/cuba/20140108/54140/54140-el-mercado-automovilistico-en-cuba-surrealismo-antillano
   - https://www.cubainformacion.tv/cuba/20260807/124389/124389-transporte-nuevas-facilidades-para-importar-vehiculos-e-impulsar-la-movilidad-electrica-en-cuba
