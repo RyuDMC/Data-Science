@@ -14,4 +14,5 @@ Trabajos previos:
 - Mercado Automovilístico 
   - https://www.cubainformacion.tv/cuba/20140108/54140/54140-el-mercado-automovilistico-en-cuba-surrealismo-antillano
   - https://www.cubainformacion.tv/cuba/20260807/124389/124389-transporte-nuevas-facilidades-para-importar-vehiculos-e-impulsar-la-movilidad-electrica-en-cuba
-  - https://www.directoriocubano.info/cuba/cuba-elimina-limite-compra-seis-autos-cinco-anos/
+  - https://www.telesurtv.net/cuba-anuncia-comercializacion-vehiculos/
+  - https://actualidad.rt.com/actualidad/view/116042-cuba-comprar-autos-nuevos
