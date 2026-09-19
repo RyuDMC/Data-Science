@@ -12,11 +12,6 @@ Trabajos previos:
    - https://oncubanews.com/cuba/economia/triciclos-electricos-en-la-habana-la-alternativa-a-la-crisis-energetica/
    - https://oncubanews.com/cuba/economia/mas-de-400-triciclos-electricos-operan-en-cuba-como-alternativa-a-otros-medios-muy-impactados-por-las-carencias/
 - Mercado Automovilístico 
- - https://www.cubainformacion.tv/cuba/20140108/54140/54140-el-mercado-automovilistico-en-cuba-surrealismo-antillano
- - https://www.cibercuba.com/noticias/2026-08-05-u1-e135253-s27061-nid337043-cuba-fija-nuevos-impuestos-venta-vehiculos-divisas
- - https://www.cibercuba.com/noticias/2026-08-05-u1-e199370-s27061-nid337087-ministro-transporte-cuba-elimina-limite-vehiculos
- - https://www.cibercuba.com/noticias/2026-06-19-u1-e209395-s27061-nid332811-cubanos-podran-importar-directamente-autos
- - https://www.cubainformacion.tv/cuba/20260807/124389/124389-transporte-nuevas-facilidades-para-importar-vehiculos-e-impulsar-la-movilidad-electrica-en-cuba
- - https://www.directoriocubano.info/cuba/cuba-elimina-limite-compra-seis-autos-cinco-anos/
- - https://www.cibercuba.com/noticias/2026-08-13-u1-e135253-s27061-nid337677-estan-vigentes-cuba-estrena-nuevas-reglas-comprar
- - https://www.cibercuba.com/noticias/2026-08-04-u1-e135253-s27061-nid337031-cuba-aprueba-nuevas-reglas-compra-venta-importacion
+  - https://www.cubainformacion.tv/cuba/20140108/54140/54140-el-mercado-automovilistico-en-cuba-surrealismo-antillano
+  - https://www.cubainformacion.tv/cuba/20260807/124389/124389-transporte-nuevas-facilidades-para-importar-vehiculos-e-impulsar-la-movilidad-electrica-en-cuba
+  - https://www.directoriocubano.info/cuba/cuba-elimina-limite-compra-seis-autos-cinco-anos/
