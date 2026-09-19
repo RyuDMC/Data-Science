@@ -3,6 +3,12 @@
  - https://porlalivre.com/
  - https://www.cubisima.com/
  - https://www.alojamientosencuba.com/
+ - https://gaos.app/
+ - https://casasoasis.com/es
+ - https://hogarencuba.com/ventas
+ - https://www.elcaiman.com/
+ - https://cubanossinmobiliaria.com/
+ - https://casascubaoficial.com/
 
 # Mercado Automovilistico
  - https://atrexport.com/
