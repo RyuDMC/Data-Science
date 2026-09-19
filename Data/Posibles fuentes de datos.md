@@ -23,3 +23,14 @@
  - https://t.me/elBacheBot
  - https://apululu.es/anuncios-clasificados/
  - por ver: Cubamax,SuperMarket23, Cuballama, DimeCuba
+
+# Mercado de Motorinas, Bicicletas Eléctricas y Patinetes Eléctricas
+ - https://islagrande.com/vehiculos-electricos.html
+ - https://multiservicesxpress.com/categoria-producto/compras-en-linea/movilidad-electrica/bicicletas-electricas/
+ - https://www.facebook.com/groups/260758679975403/
+ - https://www.facebook.com/groups/2888313244794865/
+ - https://www.facebook.com/groups/952901072820630/
+ - https://www.facebook.com/groups/976210388030585/
+
+# Mercado de Triciclos
+ - https://cubancargos.com/triciclos
