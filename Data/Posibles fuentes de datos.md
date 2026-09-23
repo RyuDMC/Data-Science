@@ -9,6 +9,17 @@
  - https://www.elcaiman.com/
  - https://cubanossinmobiliaria.com/
  - https://casascubaoficial.com/
+ - 	facebook.com/groups/899903381342036
+ - 	facebook.com/groups/694816562719171
+ - 	facebook.com/groups/1585843132314622
+ - 	facebook.com/groups/3282610531870231
+ - 	facebook.com/groups/334735425689643
+ - 	facebook.com/groups/284773989847318
+ - 	facebook.com/groups/1028385177880737
+ - 	facebook.com/groups/1140751596467927
+ - 	facebook.com/groups/872346984783923
+ - 	facebook.com/groups/2854302998070165
+ - 	facebook.com/groups/1317969815319742
 
 # Mercado Automovilistico
  - https://atrexport.com/
