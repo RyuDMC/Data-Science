@@ -55,3 +55,6 @@
  - facebook.com/groups/924994780153521/
  - https://t.me/HabaNetVenta
  - https://www.revolico.com/
+ - https://cubancargos.com/paneles-solares-cuba
+ - https://www.espoletasolar.com/paneles-solares
+ - https://suncarsrl.com/sobre-nosotross
