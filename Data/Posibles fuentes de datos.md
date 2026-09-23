@@ -45,3 +45,13 @@
  - facebook.com/groups/377550295034361/
  - https://t.me/MotosBateriasElectricasCuba#
  - https://telegramchannels.me/es/groups/cubaventas
+
+# Mercado de Paneles Solares
+ - https://tiendasolar.com/categoria-producto/fotovoltaica/paneles-solares/
+ - https://sunwellcaribe.com/(revisar a fondo)
+ - facebook.com/groups/cubaspanelesybaterias/
+ - facebook.com/groups/1215126779515290/
+ - facebook.com/groups/918081043737795/
+ - facebook.com/groups/924994780153521/
+ - https://t.me/HabaNetVenta
+ - https://www.revolico.com/
