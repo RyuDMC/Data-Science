@@ -34,3 +34,14 @@
 
 # Mercado de Triciclos
  - https://cubancargos.com/triciclos
+ - https://elyerromenu.com/
+ - https://kikihabana.com/categoria-producto/envios-a-cuba-de-motos-de-gasolina-y-electrica/envio-a-cuba-de-transporte-electrico/carritos-y-triciclos/
+ - https://compramasonline.com/tienda/
+ - https://www.revolico.com/
+ - t.me/anuncios_cu
+ - facebook.com/groups/todotricicloselectricos/
+ - facebook.com/groups/352045160853445/
+ - facebook.com/groups/1183743269911200/
+ - facebook.com/groups/377550295034361/
+ - https://t.me/MotosBateriasElectricasCuba#
+ - https://telegramchannels.me/es/groups/cubaventas
