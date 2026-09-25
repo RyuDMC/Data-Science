@@ -25,7 +25,7 @@
     "propulsion": "electrico | hibrido | gasolina",
     "marca": "IZUKI",
     "modelo": "Titan p-3000",
-    "anio": 2026,
+    "año": 2026,
     "con_extensor_rango": true,
     "extensor_potencia_w": 4500,
     "especificaciones": {
