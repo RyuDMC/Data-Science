@@ -151,6 +151,45 @@ Memoria episódica del agente. Consultar antes de actuar; escribir solo después
 
 ---
 
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-09-24 — con las 4 estructuras base entregadas (inmobiliario, autos, movilidad, triciclos) y las fuentes clasificadas, el usuario pide **técnicas de captura del dato** para alimentar los esquemas
+- **Tarea:** Playbook técnico por tipo de plataforma (WooCommerce, Magento, Next-SSR, SPA, clasificados, FB/Telegram), con código ejecutable y pipeline de captura→parseo→normalización→almacenamiento alineado a los esquemas
+- **Acción(es):** Escrito `Data/Tecnicas_de_Captura.md`: matriz técnica verificado×fuente (✅/⚠️/🔎 con endpoints reales), plantilla de descarga con caché/backoff/ritmo, parsers BS4 de WooCommerce (loop, ficha, variantes, tabla atributos), cliente REST `wp-json` paginado por `X-WP-TotalPages`, parseo de feed RSS, extracción de `__NEXT_DATA__` (CubanCargos SSR), Playwright mínimo para SPA + alternativa reverse-XHR, captura Revolico (`search?category&subcategory&page=N`) + **fallback snippets DDG** ante el bloqueo 403 vigente, canal 🔎 solo con autorización (Graph API/Telethon) o manual, normalización (precio/`parsear_oferta` "original era/actual es", `specs_desde_titulo` con regex de motor W / batería V·Ah / autonomía / carga kg) y almacenamiento JSONL con dedup por `schema|url|captura`; sección de buenas prácticas y orden de implementación
+- **Resultado:** Playbook completo en `Data/Tecnicas_de_Captura.md`; resumen en chat con las 3 técnicas clave (wp-json Woo, BS4 tiendas, snippets como redescubridor de URLs de Revolico)
+- **Error/éxito:** Éxito. Sin fetch nuevo (correcto: la evidencia de las sesiones 17–24-sep ya está en el diario y en los 4 entregables; el playbook se construye sobre lo observado, no sobre suposición)
+- **Lección:** La infraestructura del dataset casi no necesita navegador: WooCommerce (wp-json/RSS/HTML), Magento (HTML `?p=N`) y Next-SSR (HTML/`__NEXT_DATA__`) se capturan con requests+BS4; los únicos casos especiales son SPA (Playwright o reverse XHR) y Revolico (bloqueado → snippets como redescubridor de URLs `/item/<slug>-<id>`). El trabajo fino del pipeline está en la **normalización**: un mismo campo (motor W, batería V/Ah) llega como título de Revolico, tabla de ficha WooCommerce o JSON-LD y debe caer con las mismas unidades en el esquema
+- **Próxima vez:** Pilotar la captura de 1 fuente real (KikiHabana triciclos) validando `construir_registro()` contra `mercado_triciclos_cuba_v1`; retomar Revolico completo cuando el entorno permita fetch
+- **Etiquetas:** técnicas, captura, scraping, python, requests, bs4, wp-json, magento, revolico, normalización, jsonl, 2026
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-09-24 — el usuario ordena que el trabajo se centre **exclusivamente en el mercado de triciclos**; se ejecuta el piloto de captura real pendiente del handoff
+- **Tarea:** Capturar datos reales de las fuentes ✅ de triciclos contra el esquema `mercado_triciclos_cuba_v1` y dejar el dataset en JSONL
+- **Acción(es):** (1) CompraMásOnline vía **Store API pública** `wc/store/v1/products?per_page=100` filtrada por categoría id=269 (triciclos) → 11 productos; (2) KikiHabana vía **HTML BS4** del grid (la Store API agota timeout; `wp/v2/product` no trae precios) → 12 productos + limpieza de título (el `<a>` del título envuelve el precio); (3) CubanCargos vía **SSR** (Next.js) con modelos verificados por string en el HTML (PORTO BELLO, JINPEING, Furikazan, Nippon SE; todos AGOTADO); (4) ficha IZUKI enriquecida desde la página detalle ya capturada (motor 72V/3000W, potencia nominal 2500W, LiFePO4 72V/120Ah, 70 km/h, 100 km, carga 6–8 h, 6 pasajeros+conductor, controlador 24 tubos, colores Negra/Blanco, 2800×1000×1800 mm, oferta 3 500→3 200 $)
+- **Resultado:** **27 registros JSONL** en `Data/Capturas/triciclos_2026-09-24.jsonl` (Kiki 12, CML 11, CubanCargos 4); 23 con precio; **9 ofertas**; rango **$600–$4 300 USD** (extensores de rango $600–$700 confirmados como productos propios)
+- **Error/éxito:** Éxito. Dos bugs propios corregidos: (a) la Store API devuelve precios en **unidades menores** (330000 = $3 300,00) → división por 100 validada contra el HTML; (b) título de Kiki con precios pegados → regex de limpieza. CML es flaky (timeouts en páginas) → reintentos `while` (más caro); KikiHabana Store API timeout → HTML como plan B (como dice el playbook)
+- **Lección:** La **Store API pública de WooCommerce** (`wc/store/v1/products`, catálogos completos con `prices`/`sku`/`is_in_stock`/`attribute_names`) es la vía más limpia, pero **siempre dividir por `10^currency_minor_unit`** o parsear `price_html`; el grid de KikiHabana exige limpiar el título; la página detalle (ficha completa) es la única captura "cara" del pipeline (25 s/página)
+- **Próxima vez:** Enriquecer la ficha de los 11 triciclos restantes de KikiHabana (una página detalle cada uno); incorporar Revolico cuando el entorno lo permita; tratar "extensor de rango" como entidad de análisis propia; cruzar precios tienda-vs-tienda por marca+modelo+motor/batería
+- **Etiquetas:** triciclos, captura, piloto, jsonl, wp-json, store-api, bs4, ssr, unidades-menores, 2026
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-09-24 — el usuario pide que le **explique mejor las técnicas de captura del dato** (tras el piloto triciclos); se entrega visión conceptual + se formaliza en el playbook
+- **Tarea:** Explicación didáctica: qué es capturar, los 3 ejes que deciden la técnica (SSR vs SPA, API pública, barreras), las 4 fases del pipeline y los gotchas reales del piloto (unidades menores de Store API, título de grid con precio pegado, timeouts)
+- **Acción(es):** Añadida la sección «0. Cómo funciona por dentro — visión conceptual» a `Data/Tecnicas_de_Captura.md` (árbol de decisión SSR/SPA/API/barreras + fases descarga→parseo→normalización→almacenamiento con ejemplos triciclos); explicación completa en el chat
+- **Resultado:** El playbook queda autocontenido (conceptos + matriz + código); el usuario puede leer la teoría y luego las técnicas concretas
+- **Error/éxito:** Éxito. Sin fetch nuevo (es material pedagógico sobre lo ya capturado)
+- **Lección:** Enseñar el "porqué" antes del "cómo" acorta la curva: entender que el HTML puede estar renderizado en servidor o en navegador explica por qué unas tiendas se capturan con BS4 (Kiki, CML, CubanCargos) y otras necesitan Playwright (SPAs); y el estudio de los gotchas reales (centavos, título pegado) es el mejor material didáctico
+- **Próxima vez:** Si se pide, convertir la explicación en mini-tutorial con ejercicios sobre el JSONL capturado (mapear registros crudos → esquema)
+- **Etiquetas:** técnicas, captura, didáctica, conceptos, playbook, triciclos, 2026
+
+---
+
 ## Reflexión final de sesión
 
 ### Sesión 2026-09-17 → 2026-09-18
@@ -188,3 +227,13 @@ Memoria episódica del agente. Consultar antes de actuar; escribir solo después
 
 - **¿Qué patrón veo?** El molde `Prompt_data_structure.md` ya está consolidado (identificación, precio+moneda, físico/técnico, geografía, canal, anunciante, métricas, captura) y el triciclos lo llena con 2 rasgos únicos: la **legalización** como campo de precio implícito ("factura de mipyme a nombre del cliente", "directo a chapa") — señal de mercado maduro con subcategoría propia en Revolico — y la **propulsión híbrida / extensor de rango** (3000–5000W) vendido como combo, accesorio ($600–$700) o atributo. Se confirma además el patrón de infraestructura: las tiendas (WooCommerce, Next-SSR) se scrapean en HTML puro, y Revolico sigue siendo el clasificado de referencia (hoy bloqueado desde este entorno → snippets).
 - **¿Qué debo recordar sí o sí?** Todo el mercado opera en USD. Revolico-triciclos = `search?category=vehiculos&subcategory=vehiculos-motos-electricas-y-triciclos`. Los modelos se repiten entre canales (IZUKI, HUAIHAI, RALLY, Mighong): la clave de cruce es marca+modelo+motor/batería. El "extensor de rango" debe modelarse como entidad propia. Schema en `Estructuras/Data_Structure_for_Triciclos.md` (repo local Data).
+
+### Sesión 2026-09-24 — técnicas de captura del dato
+
+- **¿Qué patrón veo?** La captura del dataset se resuelve casi sin navegador: WooCommerce (wp-json/RSS/HTML), Magento (HTML `?p=N`) y Next-SSR (HTML/`__NEXT_DATA__`) solo necesitan requests+BS4; los casos especiales son SPA (Playwright o reverse-XHR) y Revolico (bloqueado desde este entorno → snippets como redescubridor de URLs `/item/<slug>-<id>`). El cuello de botella del pipeline está en la normalización: el mismo dato (motor W, batería V·Ah, oferta) llega como título de Revolico, tabla de ficha WooCommerce o JSON-LD y hay que aterrizarlo con unidades consistentes en el esquema.
+- **¿Qué debo recordar sí o sí?** Técnicas por fuente en `Data/Tecnicas_de_Captura.md`. Orden de implementación: piloto WooCommerce (KikiHabana/CompraMás) → catálogos (wp-json, Magento, SSR) → Revolico cuando haya entorno limpio. FB/Telegram siempre fuera del pipeline automático. Todo registro guarda `metodo` + `captura` (solo lo observado).
+
+### Sesión 2026-09-24 — piloto de captura triciclos (foco exclusivo)
+
+- **¿Qué patrón veo?** El playbook se valida en producción: 3 fuentes ✅ de triciclos = 3 técnicas distintas (Store API `wc/store` para CML, BS4 grid + limpieza de título para Kiki, SSR para CubanCargos) y las 3 funcionan sin Playwright. La ficha técnica por producto (página detalle) es el único paso costoso — y es el que aporta valor diferencial (motor/batería/autonomía para cruzar la misma oferta entre tiendas). Los extensores de rango ya aparecen como productos propios en CML ($600–$700) → confirman modelarlos como entidad.
+- **¿Qué debo recordar sí o sí?** Store API devuelve precios en unidades menores (dividir por `10^minor_unit`; validar contra `price_html`). Dataset del mercado en `Data/Capturas/triciclos_2026-09-24.jsonl` (27 registros: Kiki 12, CML 11, CubanCargos 4; 9 ofertas; $600–$4 300). Revolico sigue bloqueado (verificación por snippets).

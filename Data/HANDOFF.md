@@ -6,6 +6,7 @@ Desde esta sesión, el diario (JOURNAL) y el handoff viven en: `/media/ryudmc/17
 ## 1. Contexto
 
 - Sesión de formación en captura de datos/scraping con un científico de datos cubano. Flujo: **Journaling Prompt** + **Prompt_for_search_data_sources** + **Prompt_data_structure.md**.
+- **Enfoque exclusivo desde 2026-09-24**: el trabajo gira solo alrededor del **mercado de triciclos** (captura, análisis y pipeline). Los otros mercados quedan documentados pero fuera de alcance activo.
 - El usuario ejecuta el prompt `Prompt_data_structure.md` (estructura JSON + explicación de cada campo, sin inventar datos, solo info de los sitios dados) mercado por mercado, sobre las secciones de `Data/Posibles fuentes de datos.md`.
 - Mercados con **estructura de datos entregada** (2026-09-22 → 24):
   1. **Inmobiliario** → `mercado_inmobiliario_cuba_v1` (Data_Structure_for_Inmbuebles.md)
@@ -40,11 +41,14 @@ Desde esta sesión, el diario (JOURNAL) y el handoff viven en: `/media/ryudmc/17
 - Reverificar **Ofertas.cu** (autos) y descartar/confirmar **El Yerro** (triciclos) con inspección JS (DevTools/XHR).
 - Datificar **patinetes** (no aparecen en las tiendas de movilidad): solo vía grupos FB (Graph API/manual) o nuevas tiendas.
 - (Opcional) mostrar Revolico-triciclos completo cuando el entorno permita fetch; muestrear 2-3 páginas de `vehiculos-motos-electricas-y-triciclos` para promedios de precios.
+- **✅ Piloto de captura triciclos ejecutado (2026-09-24)**: 27 registros JSONL en `Data/Capturas/triciclos_2026-09-24.jsonl` (KikiHabana 12 vía BS4 grid, CompraMásOnline 11 vía Store API, CubanCargos 4 vía SSR; 9 ofertas; $600–$4 300 USD; ficha completa del IZUKI). Pendiente: fichas de los 11 triciclos restantes de KikiHabana, Revolico (bloqueado), cruce de precios por marca+modelo+motor/batería.
 - Actualizar `Data/Journaing_file.md` en GitHub (push manual del usuario; el archivo ya está local).
 
 ## 4. Recursos
 
 - `Data/Journaing_file.md` — diario activo (fuente de verdad). · `Data/handoff.md` — handoff v2026-09-22 (histórico).
+- `Data/Tecnicas_de_Captura.md` — playbook de captura (pipeline, parsers por plataforma, normalización, snippets fallback, JSONL).
+- `Data/Capturas/triciclos_2026-09-24.jsonl` — dataset piloto del mercado triciclos (27 registros).
 - `Data/Estructuras/Data_Structure_for_Triciclos.md` + `Data_Structure_for_Autos.md`/`Movilidad_Electrica.md`/`Inmbuebles.md` en Default Project local.
 - Repo GitHub `RyuDMC/Data-Science`: `Prompts/Prompt_data_structure.md` · `Data/Posibles fuentes de datos.md` (secciones: Inmobiliario, Automovilístico, Motorinas/Bicicletas/Patinetes, Triciclos, Paneles Solares).
 - Fuentes verificadas por mercado (detalle en cada entregable): Revolico, Cubisima, VentaCuba, Autocubana, ATR, MCV, Apululu, Islagrande, MultiServicesXpress, KikiHabana, CompraMásOnline, CubanCargos, El Yerro, GAOS/CasasOasis/HogarEnCuba (SPA), VEDCA, todotricicloselectricos.com (FB verificado), Telegram (anuncios_cu, MotosBateriasElectricasCuba, cubaventas).
