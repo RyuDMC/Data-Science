@@ -1,0 +1,80 @@
+{
+  "schema": "mercado_triciclos_cuba_v1",
+  "fuente": "kikihabana | compramasonline | cubancargos | revolico | elyerromenu | facebook_grupo | telegram_canal",
+  "url_anuncio": "https://kikihabana.com/producto/triciclo-electrico-para-cuba-2/",
+  "id_externo": "triciclo-electrico-para-cuba-2",
+  "titulo": "IZUKI Triciclo eléctrico",
+  "descripcion": "texto libre del anuncio o ficha",
+  "fechas": {
+    "publicacion": "2026-08-10",
+    "captura": "2026-09-24"
+  },
+  "precio": {
+    "monto": 3200,
+    "moneda": "USD",
+    "es_oferta": true,
+    "monto_anterior": 3500,
+    "descuento_porciento": 9
+  },
+  "estado": {
+    "stock": "disponible | agotado | con_variantes",
+    "condicion": "nuevo_0km | usado | preventa"
+  },
+  "triciclo": {
+    "uso": "carga | pasajeros | mixto | ocio_paseo",
+    "propulsion": "electrico | hibrido | gasolina",
+    "marca": "IZUKI",
+    "modelo": "Titan p-3000",
+    "anio": 2026,
+    "con_extensor_rango": true,
+    "extensor_potencia_w": 4500,
+    "especificaciones": {
+      "motor_potencia_w": 3000,
+      "potencia_nominal_w": 2500,
+      "bateria_tipo": "Lithium LiFePO4 | gel | acido_plomo",
+      "bateria_voltaje_v": 72,
+      "bateria_capacidad_ah": 120,
+      "autonomia_km": 100,
+      "velocidad_max_kmh": 70,
+      "tiempo_carga_h": "6-8",
+      "carga_max_kg": 1000,
+      "capacidad_personas": 8,
+      "controlador": "24 tubos | Votol EM-100",
+      "medidas_cama_cm": "160x110",
+      "techo": true,
+      "colores": ["Negra", "Blanco"]
+    }
+  },
+  "legalizacion": {
+    "papeles": "factura_mipyme_nombre_cliente | chapa_y_permiso | arancel_aduanal_incluido | sin_info",
+    "nota": "directo a chapa; permiso de circulación incluido"
+  },
+  "canal_comercial": {
+    "tipo": "tienda_envios | clasificado | grupo_facebook | telegram",
+    "envio_incluido": "mensajeria_hasta_lahabana | domicilio_total | sin_info",
+    "modalidad_entrega": "recogida_almacen | entrega_domicilio",
+    "tiempo_entrega_dias": "25-35",
+    "origen_vendedor": "Miami, EE. UU. | Cuba",
+    "pagos_aceptados": null
+  },
+  "ubicacion_anuncio": {
+    "provincia": "La Habana",
+    "municipio": "Centro Habana",
+    "detalle": null
+  },
+  "anunciante": {
+    "tipo": "tienda | mipyme | particular | agente",
+    "nombre": "KikiHabana",
+    "telefono": null
+  },
+  "metricas": {
+    "visitas": null,
+    "destacado": false,
+    "reseñas": 232,
+    "rating_vendedor": null
+  },
+  "metadatos_captura": {
+    "metodo": "requests_bs4 | wp_json_api | snippets_buscador | xhr_js",
+    "observaciones": "specs en ficha o título; legalización es campo crítico; Revolico bloqueado hoy (verificado por snippets)"
+  }
+}
