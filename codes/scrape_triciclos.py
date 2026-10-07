@@ -1,415 +1,780 @@
 #!/usr/bin/env python3
 """
-Scraper de triciclos para fuentes cubanas.
-Guarda resultados en JSON Lines (.jsonl) con un objeto por anuncio.
+Scraper de triciclos para fuentes cubanas VERIFICADAS (2026-10-07).
 
-Fuentes objetivo:
-- Revolico (clasificados)
-- KikiHabana, CubanCargos, CompraMás (tiendas WooCommerce)
+Estructura del repo (decisión del usuario, 2026-10-07):
+  codes/ -> scripts    Data/ -> datos de entrada y salida
+
+Fuentes activas:
+  ✅ casalinda   — habana.casalindashop.com  (Magento; 2 combustión + 3 eléctricos, con precio)
+  ✅ cubancargos — cubancargos.com/triciclos (Tailwind; 4 triciclos: 3 Híbrido + 1 Eléctrico,
+                  specs de la tabla 'Especificaciones técnicas' del detalle)
+  ✅ elyerromenu — elyerromenu.com/b/cuba-sobre-ruedas (clasificados comerciales, Boyeros;
+                  20 fichas en la categoría de triciclos, precio + specs en el texto libre)
+  ✅ vedca       — vedca.cu (fabricante estatal; fichas de especificaciones en tabla,
+                  SIN precio: aporta carga_kg y autonomia_km, no precio_usd)
+
+Fuentes descartadas (verificadas muertas/bloqueadas, 2026-10-07):
+  ❌ revolico.com, compramasonline.com, islagrande.com, multiservicesxpress.com,
+     patuisla.com, mundoenvio.com, envioscubamerica.com → reto de Cloudflare (403 o challenge)
+  ❌ kikihabana.com → DNS no resuelve
+  ❌ cubisima.com, autocubana.com, ventacuba.com, ofertas.cu, cubamax.com, cuballama.com,
+     dimecuba.com, atrexport.com, mcvcommercial.com → 200 pero sin triciclos
+  ❌ html.duckduckgo.com → 403 en queries site:
+
+Límite conocido de elyerromenu: el sitemap (129 MB) es la única enumeración completa,
+así que se usa la página de categoría = catálogo vivo. Hay 7 fichas de triciclos sin
+categorizar (archivadas, una marcada "Agotado") que quedan fuera.
 
 Uso:
-    python3 scrape_triciclos.py
+    python3 codes/scrape_triciclos.py      # escribe Data/anuncios_triciclos.jsonl
 """
 
 import json
 import re
 import time
+import unicodedata
 from datetime import datetime
+from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
+# Convención de carpetas (decisión del usuario, 2026-10-07):
+#   codes/ -> scripts, Data/ -> datos (entrada y salida)
+DATA_DIR = Path(__file__).resolve().parent.parent / "Data"
 
-# ==================== CONFIG ====================
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "es-ES,es;q=0.9",
 }
 
 SOURCES = {
-    "revolico": {
-        "url": "https://www.revolico.com/search?category=vehiculos&subcategory=vehiculos-motos-electricas-y-triciclos",
-        "parser": "parse_revolico",
-        "list_selector": "div.listing-item, div.ad-item, article.ad",
-        "detail_link_selector": "a[href*='/item/']",
-    },
-    "kikihabana": {
-        "url": "https://kikihabana.com/categoria-producto/triciclos/",
-        "parser": "parse_woocommerce",
-        "list_selector": "li.product",
-        "detail_link_selector": "a.woocommerce-LoopProduct-link",
+    "casalinda": {
+        "url": "https://habana.casalindashop.com/vehiculos/triciclos.html",
+        "list_parser": "parse_casalinda_list",
+        "detail_parser": None,          # specs completas ya vienen en el listado
+        "propulsion_hint": "indeterminado",
     },
     "cubancargos": {
-        "url": "https://cubancargos.com/categoria-producto/triciclos/",
-        "parser": "parse_woocommerce",
-        "list_selector": "li.product",
-        "detail_link_selector": "a.woocommerce-LoopProduct-link",
+        "url": "https://cubancargos.com/triciclos",
+        "list_parser": "parse_cubancargos_list",
+        "detail_parser": "parse_cubancargos_detail",
+        "propulsion_hint": "indeterminado",
     },
-    "compramas": {
-        "url": "https://compramasonline.com/categoria-producto/triciclos/",
-        "parser": "parse_woocommerce",
-        "list_selector": "li.product",
-        "detail_link_selector": "a.woocommerce-LoopProduct-link",
+    "elyerromenu": {
+        "url": "https://elyerromenu.com/b/cuba-sobre-ruedas/category/"
+               "triciclos-electricos-y-con-extensor",
+        "list_parser": "parse_elyerromenu_list",
+        "detail_parser": "parse_elyerromenu_detail",   # precio y specs solo en la ficha
+        "propulsion_hint": "indeterminado",
+    },
+    "vedca": {
+        "url": "http://www.vedca.cu/",
+        "list_parser": "parse_vedca_list",
+        "detail_parser": "parse_vedca_detail",
+        "propulsion_hint": "electrico",
     },
 }
 
-OUTPUT_FILE = "anuncios_triciclos.jsonl"
-REQUEST_DELAY = 2  # segundos entre requests
+OUTPUT_FILE = DATA_DIR / "anuncios_triciclos.jsonl"
+REQUEST_DELAY = 2
 TIMEOUT = 30
 
 
-# ==================== UTILIDADES ====================
-def clean_text(text: str) -> str:
-    """Limpia texto: quita espacios extra, saltos de línea."""
+# ==================== LIMPIEZA / EXTRACCIÓN ====================
+def clean_text(text):
     if not text:
         return ""
-    return re.sub(r"\s+", " ", text.strip())
+    return re.sub(r"\s+", " ", text.replace("\xa0", " ").strip())
 
 
-def extract_price_usd(text: str):
-    """Extrae precio en USD del texto. Devuelve (precio_int, es_desde_bool)."""
+def extract_price_usd(text):
+    """Devuelve (precio_entero_USD, es_desde). Maneja '3.100,00 USD' y '$4751.00'."""
     if not text:
         return None, False
-    text = text.lower()
-    desde = "desde" in text
-    # Busca $1,234 o $1234 o 1,234 USD o 1234 USD
-    m = re.search(r"[\$\s]([\d,.]+)\s*(?:usd|usd?)?", text)
-    if m:
-        val = m.group(1).replace(",", "").replace(".", "")
-        try:
-            return int(val), desde
-        except ValueError:
-            pass
-    return None, desde
+    t = clean_text(text)
+    desde = bool(re.search(r"\bdesde\b", t, re.I))
+    # Captura números con separadores de miles/decimales
+    m = re.search(r"([\d]{1,3}(?:[.,\s]\d{3})*(?:[.,]\d{1,2})?|[\d]+(?:[.,]\d{1,2})?)", t)
+    if not m:
+        return None, desde
+    raw = m.group(1).strip()
+    return _to_int_price(raw), desde
 
 
-def extract_motor_w(text: str):
-    """Extrae potencia del motor en watts."""
+def _to_int_price(raw):
+    """'3.100,00' -> 3100 | '$4751.00' -> 4751 | '1,234' -> 1234 | '475100' -> 475100"""
+    if not raw:
+        return None
+    s = raw.replace(" ", "")
+    # Último separador decide: si finaliza en ,XX o .XX (1-2 dígitos) → decimal
+    m_dec = re.search(r"[.,](\d{1,2})$", s)
+    if m_dec:
+        s = s[: m_dec.start()]              # corta el decimal
+        s = s.replace(".", "").replace(",", "")  # el resto son miles
+    else:
+        # sin decimal: cualquier separador es de miles si agrupa de 3
+        if re.search(r"[.,]\d{3}$", s):
+            s = s.replace(".", "").replace(",", "")
+        # si no, es un número simple
+    digits = re.sub(r"[^\d]", "", s)
+    if not digits:
+        return None
+    try:
+        return int(digits)
+    except ValueError:
+        return None
+
+
+def extract_motor_w(text):
     if not text:
         return None
-    m = re.search(r"(\d{3,5})\s*[wW]", text)
+    m = re.search(r"(\d{3,5})\s*[wW]\b", text)
     if m:
         return int(m.group(1))
-    # Busca "3000W", "3kw", "5kw"
-    m = re.search(r"(\d+(?:\.\d+)?)\s*[kK][wW]", text)
+    m = re.search(r"(\d+(?:\.\d+)?)\s*[kK][wW]\b", text)
     if m:
         return int(float(m.group(1)) * 1000)
     return None
 
 
-def extract_battery(text: str):
-    """Extrae voltaje y amperaje de batería. Devuelve (V, Ah) o (None, None)."""
+def extract_cc(text):
+    if not text:
+        return None
+    m = re.search(r"(\d{2,4})\s*cc\b", text, re.I)
+    return int(m.group(1)) if m else None
+
+
+def extract_battery(text):
+    """Devuelve (V, Ah)."""
     if not text:
         return None, None
-    # 60V 20Ah, 60v20ah, 72V 30AH
     m = re.search(r"(\d{2,3})\s*[vV]\s*(\d{1,3})\s*[aA][hH]?", text)
     if m:
         return int(m.group(1)), int(m.group(2))
+    # formatos separados: "72 V" y "58 Ah" cercanos
+    v = re.search(r"(\d{2,3})\s*[vV]\b", text)
+    ah = re.search(r"(\d{1,3})\s*[aA][hH]\b", text)
+    if v and ah:
+        return int(v.group(1)), int(ah.group(1))
     return None, None
 
 
-def normalize_modelo(text: str) -> str:
-    """Normaliza nombres de modelos conocidos."""
+def extract_carga_kg(text):
+    if not text:
+        return None
+    m = re.search(r"(?:capacidad|carga)[^\d]{0,20}(\d{2,4})\s*kg", text, re.I)
+    if m:
+        return int(m.group(1))
+    m = re.search(r"(\d{2,4})\s*kg", text, re.I)
+    return int(m.group(1)) if m else None
+
+
+def detect_propulsion(text, hint="indeterminado"):
+    """Detecta propulsión. Devuelve: hibrido | electrico | gasolina | indeterminado.
+
+    OJO: 'hibrido' es categoría propia. En CubanCargos 3 de 4 triciclos se
+    anuncian como híbridos (motor de gasolina + asistencia eléctrica) y
+    clasificarlos como 'electrico' sería dato falso.
+    """
+    if not text:
+        return hint
+    t = text.lower()
+    # \w* al final porque 'eléctrico' termina en 'o': \b ahí nunca coincide.
+    if re.search(r"\bel[eé]ctric\w*", t):
+        return "electrico"
+    if re.search(r"\bcombusti[oó]n\b|\bgasolina\b|\d{1,4}\s?cc\b|cilindrada|4\s*tiempos|carburador|enfriamiento por", t):
+        return "gasolina"
+    if re.search(r"\bh[ií]brid\w*", t):
+        return "hibrido"
+    if re.search(r"\bbater[ií]a\b|\blitio\b|cargador|\d{2,3}\s?v\b|\d{1,3}\s?ah\b|\d{3,5}\s?w\b", t):
+        return "electrico"
+    if hint in ("electrico", "gasolina", "hibrido"):
+        return hint
+    return "indeterminado"
+
+
+def normalize_modelo(text):
+    """Identificador de producto distintivo (no confundir con la marca).
+
+    OJO: dos Magic Bike distintos (M004 200cc, M005 250cc) NO deben fusionarse,
+    y los títulos genéricos de Casalinda no deben colapsar en "TRICICLO EL".
+    """
     if not text:
         return "indeterminado"
-    text = text.upper()
-    known = ["IZUKI", "HUAIHAI", "RALLY", "MIGHONG", "ZONGSHEN", "LONCIN", "YAMAHA", "HONDA"]
-    for k in known:
-        if k in text:
+    u = text.upper()
+
+    # 1) 'Marca: Magic Bike, Modelo: M004' -> 'MAGIC BIKE M004'
+    marca_m = re.search(r"MARCA[:\s]+([A-Za-z0-9 ]+?)(?:,|$)", u)
+    mod_m = re.search(r"MODELO[:\s]+([A-Z0-9\-]+)", u)
+    if marca_m and mod_m:
+        return f"{marca_m.group(1).strip()} {mod_m.group(1)}".strip()
+
+    # 2) Códigos de modelo conocidos
+    for k in ["SK-2101", "SK2101", "PORTO BELLO", "JINPEING", "JEINPEING",
+              "FURIKAZAN", "NIPPON SE", "NIPPON"]:
+        if k in u:
             return k
-    # Si no coincide, devuelve primeras 2 palabras
-    words = text.split()
-    return " ".join(words[:2]) if words else "indeterminado"
+
+    # 3) Solo código de modelo: 'MODELO: M005'
+    if mod_m:
+        return mod_m.group(1)
+
+    # 3b) Alias entre fuentes: mismo producto redactado de forma distinta.
+    #     vedca.cu dice 'Modelo : C- 400' y elyerromenu 'VEDCA C400' -> mismo modelo.
+    m = re.search(r"VEDCA\s*C[\s\-]*(\d{2,4})", u)
+    if m:
+        return f"VEDCA C{m.group(1)}"
+    if re.search(r"PORTO\s?BELLO", u):
+        return "PORTO BELLO"
+
+    # 4) Fallback: palabras distintivas, sin artículos/genéricos de triciclo.
+    #    Se quitan tildes ANTES de trocear: "ELÉCTRICO" si no, parte en "EL"+"CTRICO".
+    u_ascii = "".join(c for c in unicodedata.normalize("NFD", u)
+                      if unicodedata.category(c) != "Mn")
+    STOP = {"TRICICLO", "DE", "LA", "EL", "LOS", "LAS", "CON", "Y", "A", "EN",
+            "POR", "PARA", "TIPO", "CERRADA", "CERRADO", "TRASERO", "TRASERA", "MARCA"}
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", u_ascii) if w and w not in STOP]
+    return " ".join(words[:4]) if words else "indeterminado"
 
 
-# ==================== PARSERS ====================
-def parse_revolico(soup: BeautifulSoup, base_url: str):
-    """Parsea listado de Revolico."""
-    items = []
-    # Revolico usa varios selectores, probamos los más comunes
-    for sel in ["div.listing-item", "div.ad-item", "article.ad", "div.item"]:
-        items = soup.select(sel)
-        if items:
-            break
-
-    for item in items:
-        # Enlace al detalle
-        link = item.select_one("a[href*='/item/']")
-        if not link:
+# ==================== PARSER: CASALINDA (Magento) ====================
+def parse_casalinda_list(soup, base_url, hint):
+    for item in soup.select(".products-grid .item, .product-item"):
+        name_el = item.select_one(".product-item-link, .product-name a, a.product-item-link")
+        link_el = item.select_one("a[href]")
+        price_el = item.select_one(".price")
+        if not (name_el and link_el):
             continue
-        detail_url = urljoin(base_url, link.get("href", ""))
-
-        # Título
-        title_elem = item.select_one("h2, h3, .title, .ad-title")
-        titulo = clean_text(title_elem.get_text()) if title_elem else ""
-
-        # Precio
-        price_elem = item.select_one(".price, .ad-price, [class*='price']")
-        precio_txt = clean_text(price_elem.get_text()) if price_elem else ""
-        precio, desde = extract_price_usd(precio_txt)
-
-        # Construir registro base
-        record = {
-            "modelo": normalize_modelo(titulo),
-            "marca": None,  # se llena en detalle
-            "motor_w": extract_motor_w(titulo),
-            "bateria_v": None,
-            "bateria_ah": None,
-            "autonomia_km": None,
-            "carga_kg": None,
-            "precio_usd": precio,
-            "precio_desde": desde,
-            "ano": None,
-            "condicion": "usado" if "usado" in titulo.lower() else "nuevo",
-            "legalizacion": None,
-            "vendedor_tipo": "particular",
-            "municipio_anuncio": None,
-            "url": detail_url,
-            "fecha_captura": datetime.now().isoformat(),
-            "fuente": "revolico",
-            "_titulo_raw": titulo,
-        }
-
-        # Intentar extraer municipio del snippet
-        location_elem = item.select_one(".location, .ad-location, [class*='location']")
-        if location_elem:
-            record["municipio_anuncio"] = clean_text(location_elem.get_text())
-
-        # Extraer marca del título si aparece
-        for marca in ["IZUKI", "HUAIHAI", "RALLY", "MIGHONG", "ZONGSHEN", "LONCIN"]:
-            if marca in titulo:
-                record["marca"] = marca
-                break
-
-        yield record
-
-
-def parse_woocommerce(soup: BeautifulSoup, base_url: str):
-    """Parsea listado WooCommerce genérico (KikiHabana, CubanCargos, CompraMás)."""
-    items = soup.select("li.product")
-    for item in items:
-        link = item.select_one("a.woocommerce-LoopProduct-link")
-        if not link:
+        titulo = clean_text(name_el.get_text())
+        if not titulo:
             continue
-        detail_url = urljoin(base_url, link.get("href", ""))
+        detail_url = link_el.get("href", "")
+        precio, desde = extract_price_usd(clean_text(price_el.get_text())) if price_el else (None, False)
 
-        # Título
-        title_elem = item.select_one("h2.woocommerce-loop-product__title, h3, .product-title")
-        titulo = clean_text(title_elem.get_text()) if title_elem else ""
-
-        # Precio
-        price_elem = item.select_one(".price, .woocommerce-Price-amount")
-        precio_txt = clean_text(price_elem.get_text()) if price_elem else ""
-        precio, desde = extract_price_usd(precio_txt)
-
-        record = {
+        propulsion = detect_propulsion(titulo, hint)
+        v, ah = extract_battery(titulo)
+        yield {
             "modelo": normalize_modelo(titulo),
-            "marca": None,
-            "motor_w": extract_motor_w(titulo),
-            "bateria_v": None,
-            "bateria_ah": None,
-            "autonomia_km": None,
-            "carga_kg": None,
+            "marca": _marca_from_titulo(titulo),
+            "propulsion": propulsion,
+            "motor_w": extract_motor_w(titulo) if propulsion == "electrico" else None,
+            "motor_cc": extract_cc(titulo),
+            "bateria_v": v,
+            "bateria_ah": ah,
+            "autonomia_km": _km_from_text(titulo),
+            "carga_kg": extract_carga_kg(titulo),
             "precio_usd": precio,
             "precio_desde": desde,
             "ano": None,
             "condicion": "nuevo",
             "legalizacion": None,
             "vendedor_tipo": "tienda",
-            "municipio_anuncio": None,
+            "municipio_anuncio": "La Habana",
             "url": detail_url,
             "fecha_captura": datetime.now().isoformat(),
-            "fuente": urlparse(base_url).netloc.replace("www.", ""),
+            "fuente": "casalindashop",
             "_titulo_raw": titulo,
         }
 
-        for marca in ["IZUKI", "HUAIHAI", "RALLY", "MIGHONG", "ZONGSHEN", "LONCIN"]:
-            if marca in titulo:
-                record["marca"] = marca
+
+# ==================== PARSER: CUBANCARGOS (Tailwind) ====================
+def parse_cubancargos_list(soup, base_url, hint):
+    seen = set()
+    for link in soup.select('a[href^="/triciclos/"]'):
+        href = link.get("href", "")
+        if not href or href in ("/triciclos/", "/triciclos/electricos-cuba", "/triciclos/gasolina-cuba"):
+            continue
+        if href in seen:
+            continue
+        seen.add(href)
+        h3 = link.select_one("h3")
+        titulo = clean_text(h3.get_text()) if h3 else clean_text(link.get_text())
+        if len(titulo) < 5:
+            continue
+        propulsion = detect_propulsion(titulo, hint)
+        v, ah = extract_battery(titulo)
+        yield {
+            "modelo": normalize_modelo(titulo),
+            "marca": _marca_from_titulo(titulo),
+            "propulsion": propulsion,
+            "motor_w": extract_motor_w(titulo) if propulsion == "electrico" else None,
+            "motor_cc": extract_cc(titulo),
+            "bateria_v": v,
+            "bateria_ah": ah,
+            "autonomia_km": _km_from_text(titulo),
+            "carga_kg": extract_carga_kg(titulo),
+            "precio_usd": None,   # no hay precio en listado
+            "precio_desde": False,
+            "ano": None,
+            "condicion": "nuevo",
+            "legalizacion": None,
+            "vendedor_tipo": "tienda",
+            "municipio_anuncio": None,
+            "url": urljoin(base_url, href),
+            "fecha_captura": datetime.now().isoformat(),
+            "fuente": "cubancargos",
+            "_titulo_raw": titulo,
+        }
+
+
+def parse_cubancargos_detail(soup, record):
+    """Completa specs desde la tabla 'Especificaciones técnicas'.
+
+    La tabla es `table` con `tr` > 2 `td` (etiqueta, valor). El campo `Tipo`
+    es el dato autoritativo de propulsión (Híbrido / Eléctrico / Gasolina),
+    no el texto libre de la página (que menciona 'Eléctricos' en el menú).
+    """
+    specs = _specs_from_table(soup)
+    record["_specs"] = specs
+
+    # 1) Propulsión: `Tipo` manda si existe
+    tipo = specs.get("Tipo") or specs.get("tipo")
+    if tipo:
+        record["propulsion"] = _propulsion_from_tipo(tipo)
+    else:
+        # fallback: título del producto, no la página completa
+        h1 = soup.find("h1")
+        base = clean_text(h1.get_text()) if h1 else record.get("_titulo_raw", "")
+        record["propulsion"] = detect_propulsion(base, record.get("propulsion", "indeterminado"))
+
+    # 2) Motor
+    if not record.get("motor_w"):
+        record["motor_w"] = extract_motor_w(specs.get("Motor", "")) or \
+                            extract_motor_w(record.get("_titulo_raw", ""))
+    # 3) Batería
+    if not record.get("bateria_v"):
+        v, ah = extract_battery(specs.get("Batería", "") or specs.get("Bateria", ""))
+        if v:
+            record["bateria_v"], record["bateria_ah"] = v, ah
+    # 4) Autonomía — primer número ('50–60 km' -> 50 conservador)
+    if not record.get("autonomia_km"):
+        record["autonomia_km"] = _first_int(specs.get("Autonomía", ""))
+    # 5) Carga
+    if not record.get("carga_kg"):
+        record["carga_kg"] = _first_int(specs.get("Capacidad de carga", "")) or \
+                             extract_carga_kg(specs.get("Carga", ""))
+    # 6) Legalización: Factura / Documentación (criterio ponderado)
+    if not record.get("legalizacion"):
+        legal = specs.get("Factura") or specs.get("Documentación") or specs.get("Documentacion")
+        if legal:
+            record["legalizacion"] = clean_text(legal)[:120]
+    # 7) Garantía (informativo)
+    if specs.get("Garantía"):
+        record["garantia"] = clean_text(specs["Garantía"])[:80]
+    # 8) Extensor de rango (señal de mercado relevante)
+    if specs.get("Extensor de rango"):
+        record["extensor_rango_w"] = extract_motor_w(specs["Extensor de rango"])
+
+    # 9) Precio: 'Precio: $5320.00' es el actual; el siguiente es el tachado
+    if not record.get("precio_usd"):
+        m = re.search(r"Precio:\s*\$\s*([\d.,]+)", soup.get_text(" ", strip=True))
+        if m:
+            record["precio_usd"] = _to_int_price(m.group(1))
+        else:
+            m2 = re.findall(r"\$\s*([\d,]{4,}(?:\.\d{1,2})?)", soup.get_text(" ", strip=True))
+            if m2:
+                record["precio_usd"] = _to_int_price(m2[0])
+
+
+def _specs_from_table(soup):
+    """Extrae pares etiqueta/valor de la(s) tabla(s) del detalle."""
+    specs = {}
+    for tr in soup.select("table tr"):
+        tds = tr.select("td")
+        if len(tds) >= 2:
+            key = clean_text(tds[0].get_text())
+            val = clean_text(tds[1].get_text(" ", strip=True))
+            if key and val and key not in specs:
+                specs[key] = val
+    return specs
+
+
+def _propulsion_from_tipo(tipo):
+    """'Híbrido' -> hibrido | 'Eléctrico' -> electrico | 'Gasolina' -> gasolina."""
+    t = tipo.lower()
+    if "brid" in t:
+        return "hibrido"
+    if re.search(r"el[eé]ctric", t):
+        return "electrico"
+    if "gasolina" in t or "combusti" in t:
+        return "gasolina"
+    return detect_propulsion(tipo, "indeterminado")
+
+
+def _first_int(text):
+    if not text:
+        return None
+    m = re.search(r"(\d[\d.,]*)", text)
+    if not m:
+        return None
+    # '50–60' -> 50 ; '1.60' es decimal de dimensión, pero aquí son cantidades enteras
+    return _to_int_price(m.group(1))
+
+
+# ==================== PARSER: ELYERROMENU ("Cuba sobre ruedas", Boyeros) ====================
+# Clasificados comerciales: el precio sale del bloque 'Imagen N de M <precio> USD'
+# y las specs del texto libre del anuncio (muy irregular: '70kl', '1200 wat', '58amp').
+# La categoría del producto NO se puede filtrar por la palabra 'triciclo' en el cuerpo:
+# los ONEBOT no la mencionan; la evidencia es la categoría que el vendedor declara
+# en el pie de la ficha ('Categorías -> Triciclos Eléctricos y con extensor').
+_NO_ES_TRICICLO = re.compile(r"cuatriciclo|cargador|\bgomas?\b|accesorio", re.I)
+
+
+def _texto_ficha(soup):
+    """Devuelve (cuerpo, pie) del texto visible, sin <head> ni chrome.
+
+    El pie ('Categorías ...') trae rótulos de sección que falsearían la
+    propulsión y la legalidad si se mezclaran con el cuerpo del anuncio.
+    """
+    for t in soup(["script", "style", "head", "nav", "footer", "svg", "header", "noscript"]):
+        t.decompose()
+    texto = clean_text(soup.get_text(" ", strip=True))
+    corte = re.search(r"\bCategor[ií]as\b", texto)
+    if not corte:
+        return texto, ""
+    return texto[: corte.start()], texto[corte.start():]
+
+
+def _propulsion_el_yerro(texto):
+    """Híbrido manda: los anuncios de híbridos también dicen 'Eléctrico'.
+
+    Orden: híbrido -> gasolina (señal fuerte: cc / 4 tiempos, sin batería de
+    tracción) -> eléctrico -> gasolina débil.
+    """
+    t = texto.lower()
+    if re.search(r"\bh[ií]brid\w*", t):
+        return "hibrido"
+    if re.search(r"\d{1,4}\s?cc\b|4\s*tiempos|carburador", t) and \
+       not re.search(r"\d{2,3}\s?v\b|\d{1,3}\s?ah\b|bater[ií]a", t):
+        return "gasolina"
+    if re.search(r"\bel[eé]ctric\w*", t) or re.search(r"bater[ií]a|\d{2,3}\s?v\b|\d{1,3}\s?ah\b", t):
+        return "electrico"
+    if re.search(r"\bgasolina\b|combusti[oó]n", t):
+        return "gasolina"
+    return "indeterminado"
+
+
+def parse_elyerromenu_list(soup, base_url, hint):
+    """Enlaces de producto de la página de categoría (catálogo vivo).
+
+    Todo el contenido útil está en la ficha, así que el listado solo aporta la URL.
+    """
+    prefijo = "/b/cuba-sobre-ruedas/product/"
+    seen = set()
+    for link in soup.select('a[href*="/product/"]'):
+        url = urljoin(base_url, link.get("href", ""))
+        if urlparse(url).path.startswith(prefijo) and url not in seen:
+            seen.add(url)
+            yield {
+                "modelo": None,
+                "marca": None,
+                "propulsion": "indeterminado",
+                "motor_w": None,
+                "motor_cc": None,
+                "bateria_v": None,
+                "bateria_ah": None,
+                "autonomia_km": None,
+                "carga_kg": None,
+                "precio_usd": None,
+                "precio_desde": False,
+                "ano": None,
+                "condicion": None,
+                "legalizacion": None,
+                "vendedor_tipo": "tienda",
+                "municipio_anuncio": "Boyeros",
+                "url": url,
+                "fecha_captura": datetime.now().isoformat(),
+                "fuente": "elyerromenu",
+                "_requiere_detalle": True,
+            }
+
+
+def parse_elyerromenu_detail(soup, record):
+    h1 = soup.find("h1")
+    titulo = clean_text(h1.get_text()) if h1 else ""
+    slug = urlparse(record["url"]).path.rsplit("/", 1)[-1]
+    cuerpo, pie = _texto_ficha(soup)
+    cuerpo = re.sub(r"Triciclos\s+El[ée]ctricos\s+y\s+con\s+extensor", " ", cuerpo, flags=re.I)
+
+    # La categoría del vendedor incluye por error accesorios y un cuatriciclo.
+    if _NO_ES_TRICICLO.search(slug):
+        record["_descartar"] = True
+        return
+    es_triciclo = bool(re.search(r"triciclo", cuerpo, re.I)) or \
+        bool(re.search(r"Triciclos\s+El[ée]ctricos\s+y\s+con\s+extensor", pie, re.I))
+    if not es_triciclo:
+        record["_descartar"] = True
+        return
+
+    record["_titulo_raw"] = titulo
+    record["modelo"] = normalize_modelo(titulo) if titulo else None
+    if record["modelo"] is None:
+        record["_descartar"] = True
+        return
+    record["marca"] = _marca_from_titulo(titulo)
+    record["propulsion"] = _propulsion_el_yerro(cuerpo)
+
+    # Precio publicado en la ficha
+    m = re.search(r"Imagen\s+\d+\s+de\s+\d+\s+([\d.,]+)\s*USD", cuerpo, re.I) or \
+        re.search(r"([\d]{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{3,5})\s*USD", cuerpo, re.I)
+    record["precio_usd"] = _to_int_price(m.group(1)) if m else None
+
+    # Algunos anuncios declaran un precio distinto en el texto que en el campo
+    # estructurado (p. ej. TOPMAQ 4.700 vs 5.000). No se puede saber cuál es el
+    # vigente: se conserva el estructurado y se deja constancia del otro.
+    if record["precio_usd"]:
+        otros = set()
+        for mm in re.finditer(r"(\d{1,3}(?:[.,]\d{3})+|\d{3,5})(?:[.,]\d{2})?\s*(?:usd|us\$)",
+                              cuerpo, re.I):
+            v = _to_int_price(mm.group(1))
+            if v and v != record["precio_usd"] and \
+               0.6 * record["precio_usd"] <= v <= 1.6 * record["precio_usd"]:
+                otros.add(v)
+        if otros:
+            record["precio_texto_usd"] = sorted(otros)[0]
+
+    # Autonomía: 'Autonomía: 120 Km', 'Autonomía 70kl', '30-40 km de autonomía'
+    m = re.search(r"autonom\w*[^0-9]{0,22}(\d{1,3})(?:\s*[-–]\s*\d{1,3})?\s*(?:km|kl)(?!/h)",
+                  cuerpo, re.I) or \
+        re.search(r"(\d{1,3})\s*(?:km|kl)(?!/h)\s*de\s*autonom", cuerpo, re.I)
+    record["autonomia_km"] = int(m.group(1)) if m else None
+
+    # Carga
+    m = re.search(r"(?:capacidad de carga|carga m[aá]x\w*|carga)[^0-9]{0,25}"
+                  r"(\d{1,4}(?:[.,]\d{1,2})?)\s*kg", cuerpo, re.I)
+    record["carga_kg"] = _to_int_price(m.group(1)) if m else None
+
+    # Motor: 'Motor 1500W'. Si solo está el extensor de rango, NO es el motor.
+    m = re.search(r"motor[^0-9]{0,22}(\d{3,4})\s*(?:w|wat\w*)\b", cuerpo, re.I)
+    if not m:
+        for mm in re.finditer(r"(\d{3,4})\s*(?:w|wat\w*)\b", cuerpo, re.I):
+            if "extensor" not in cuerpo[max(0, mm.start() - 40): mm.start()].lower():
+                m = mm
                 break
+    record["motor_w"] = int(m.group(1)) if m else None
 
-        yield record
+    m = re.search(r"extensor[^0-9]{0,25}(\d{3,4})\s*(?:w|wat\w*)\b", cuerpo, re.I)
+    if m:
+        record["extensor_rango_w"] = int(m.group(1))
 
+    # Batería: '72V×58Ah', '60 vol x 58amp', '63ah × 72v'
+    m = re.search(r"(\d{2,3})\s*(?:volt\w*|vol|v)\s*[x×\-–—]?\s*(\d{1,3})\s*(?:amp\w*|ah)\b",
+                  cuerpo, re.I)
+    if m:
+        record["bateria_v"], record["bateria_ah"] = int(m.group(1)), int(m.group(2))
+    else:
+        m = re.search(r"(\d{1,3})\s*(?:amp\w*|ah)\s*[x×\-–—]\s*(\d{2,3})\s*(?:volt\w*|vol|v)\b",
+                      cuerpo, re.I)
+        if m:
+            record["bateria_ah"], record["bateria_v"] = int(m.group(1)), int(m.group(2))
 
-def parse_detail_revolico(soup: BeautifulSoup, record: dict):
-    """Enriquece registro con página de detalle de Revolico."""
-    # Descripción completa
-    desc_elem = soup.select_one(".description, .ad-description, .content, div[itemprop='description']")
-    if desc_elem:
-        full_text = clean_text(desc_elem.get_text())
-        record["_descripcion_raw"] = full_text[:2000]
+    m = re.search(r"(\d{1,4})\s*cc\b", cuerpo, re.I)
+    record["motor_cc"] = int(m.group(1)) if m else None
 
-        # Buscar más datos en descripción
-        if not record["motor_w"]:
-            record["motor_w"] = extract_motor_w(full_text)
-        vb, ah = extract_battery(full_text)
-        if not record["bateria_v"]:
-            record["bateria_v"], record["bateria_ah"] = vb, ah
+    # Legalización (criterio ponderado 0.10)
+    for p in [r"factura\w*", r"papeles en regla", r"documentaci[oó]n a nombre",
+              r"a nombre del cliente", r"directo a chapa", r"lista para chapa"]:
+        m = re.search(p, cuerpo, re.I)
+        if m:
+            record["legalizacion"] = clean_text(cuerpo[m.start(): m.start() + 110])
+            break
 
-        # Buscar autonomía
-        m = re.search(r"(\d{2,3})\s*km", full_text, re.I)
-        if m and not record["autonomia_km"]:
-            record["autonomia_km"] = int(m.group(1))
+    m = re.search(r"\b(20[0-2]\d)\b", titulo)
+    ano = int(m.group(1)) if m else None
+    record["ano"] = ano if ano and 2000 <= ano <= datetime.now().year else None
 
-        # Buscar carga
-        m = re.search(r"(\d{2,4})\s*kg", full_text, re.I)
-        if m and not record["carga_kg"]:
-            record["carga_kg"] = int(m.group(1))
-
-        # Legalización
-        if "factura" in full_text.lower() or "legaliz" in full_text.lower():
-            record["legalizacion"] = "mencionada en descripcion"
-
-    # Municipio en detalle
-    loc_elem = soup.select_one(".location, .ad-location, [itemprop='address']")
-    if loc_elem and not record["municipio_anuncio"]:
-        record["municipio_anuncio"] = clean_text(loc_elem.get_text())
-
-    # Vendedor: si tiene teléfono o whatsapp visible, es particular/tienda
-    if soup.select_one("[href*='whatsapp'], [href*='tel:']"):
-        record["vendedor_tipo"] = "particular"
+    if re.search(r"usado|segunda mano", cuerpo, re.I):
+        record["condicion"] = "usado"
+    elif re.search(r"nuevo|\b0\s*km\b", cuerpo, re.I):
+        record["condicion"] = "nuevo"
 
 
-def parse_detail_woocommerce(soup: BeautifulSoup, record: dict):
-    """Enriquece registro con página de producto WooCommerce."""
-    # Descripción corta
-    short_desc = soup.select_one(".woocommerce-product-details__short-description, .product-short-description")
-    if short_desc:
-        text = clean_text(short_desc.get_text())
-        if not record["motor_w"]:
-            record["motor_w"] = extract_motor_w(text)
-        vb, ah = extract_battery(text)
-        if not record["bateria_v"]:
-            record["bateria_v"], record["bateria_ah"] = vb, ah
-
-    # Descripción completa (tabs)
-    full_desc = soup.select_one("#tab-description, .woocommerce-Tabs-panel--description, .product-description")
-    if full_desc:
-        text = clean_text(full_desc.get_text())
-        if not record["motor_w"]:
-            record["motor_w"] = extract_motor_w(text)
-        vb, ah = extract_battery(text)
-        if not record["bateria_v"]:
-            record["bateria_v"], record["bateria_ah"] = vb, ah
-
-        m = re.search(r"(\d{2,3})\s*km", text, re.I)
-        if m and not record["autonomia_km"]:
-            record["autonomia_km"] = int(m.group(1))
-        m = re.search(r"(\d{2,4})\s*kg", text, re.I)
-        if m and not record["carga_kg"]:
-            record["carga_kg"] = int(m.group(1))
-
-    # Atributos (tabla de specs)
-    for row in soup.select(".woocommerce-product-attributes tr, .product_attributes tr"):
-        th = row.select_one("th")
-        td = row.select_one("td")
-        if th and td:
-            label = clean_text(th.get_text()).lower()
-            val = clean_text(td.get_text())
-            if "motor" in label and not record["motor_w"]:
-                record["motor_w"] = extract_motor_w(val)
-            if "bater" in label:
-                vb, ah = extract_battery(val)
-                if vb and not record["bateria_v"]:
-                    record["bateria_v"], record["bateria_ah"] = vb, ah
-            if "autonom" in label and not record["autonomia_km"]:
-                m = re.search(r"(\d{2,3})", val)
-                if m:
-                    record["autonomia_km"] = int(m.group(1))
-            if "carga" in label and not record["carga_kg"]:
-                m = re.search(r"(\d{2,4})", val)
-                if m:
-                    record["carga_kg"] = int(m.group(1))
-
-    # Precio real (puede variar del listado)
-    price_elem = soup.select_one(".price .woocommerce-Price-amount, .product_price .amount")
-    if price_elem:
-        precio_txt = clean_text(price_elem.get_text())
-        precio, desde = extract_price_usd(precio_txt)
-        if precio:
-            record["precio_usd"] = precio
-            record["precio_desde"] = desde
+# ==================== PARSER: VEDCA (fabricante, vedca.cu) ====================
+def parse_vedca_list(soup, base_url, hint):
+    """Triciclos del catálogo: `.portfolio-item.filter-tri` con enlace a ficha `.html`."""
+    for item in soup.select(".portfolio-item.filter-tri"):
+        a = item.select_one("a.link-details[href]")
+        if not a or not a.get("href", "").endswith(".html"):
+            continue          # 3 de 5 triciclos no tienen ficha propia (href="#")
+        yield {
+            "modelo": None,
+            "marca": "VEDCA",
+            "propulsion": "electrico",
+            "motor_w": None,
+            "motor_cc": None,
+            "bateria_v": None,
+            "bateria_ah": None,
+            "autonomia_km": None,
+            "carga_kg": None,
+            "precio_usd": None,   # VEDCA no publica precio: se cotiza por Facebook/teléfono
+            "precio_desde": False,
+            "ano": None,
+            "condicion": "nuevo",
+            "legalizacion": None,
+            "vendedor_tipo": "fabricante",
+            "municipio_anuncio": None,
+            "url": urljoin(base_url, a.get("href")),
+            "fecha_captura": datetime.now().isoformat(),
+            "fuente": "vedca",
+            "_requiere_detalle": True,
+        }
 
 
-# ==================== CORE ====================
-def fetch(url: str) -> str:
-    """GET con reintentos básicos."""
+def parse_vedca_detail(soup, record):
+    """Modelo y specs desde la tabla 'Característica | Parámetros'."""
+    texto = clean_text(soup.get_text(" ", strip=True))
+    specs = _specs_from_table(soup)
+    record["_specs"] = specs
+
+    m = re.search(r"Modelo\s*:\s*([^:]{0,30}?)(?=\s+(?:Color|Documentaci|Tipo\b)|$)", texto)
+    if m and clean_text(m.group(1)):
+        record["modelo"] = normalize_modelo(f"VEDCA {clean_text(m.group(1))}")
+
+    record["propulsion"] = "electrico" if re.search(r"triciclo\s+el[eé]ctric", texto, re.I) \
+        else detect_propulsion(texto, record.get("propulsion", "electrico"))
+    record["marca"] = "VEDCA"
+
+    if not record.get("autonomia_km"):
+        record["autonomia_km"] = _first_int(specs.get("Autonomía", ""))
+    if not record.get("carga_kg"):
+        record["carga_kg"] = _first_int(specs.get("Peso de carga", "")) or \
+                             _first_int(specs.get("Capacidad de carga", ""))
+    if not record.get("motor_w"):
+        record["motor_w"] = extract_motor_w(specs.get("Potencia del motor", ""))
+    if not record.get("bateria_v"):
+        # 'Tipo de batería' aparece 2 veces en c800.html y _specs_from_table
+        # conserva la primera ('Lifepo4 / Plomo Ácido', sin cifras): buscar en el texto.
+        v, ah = extract_battery(texto)
+        if v:
+            record["bateria_v"], record["bateria_ah"] = v, ah
+
+
+# ==================== HELPERS ====================
+def _marca_from_titulo(titulo):
+    u = titulo.upper()
+    for k in ["MAGIC BIKE", "IZUKI", "HUAIHAI", "RALLY", "MIGHONG", "ZONGSHEN", "LONCIN",
+              "YAMAHA", "HONDA", "ZNEN", "JIALING", "BAJAJ", "TVS", "PORTO BELLO",
+              "JINPEING", "JEINPEING", "FURIKAZAN", "NIPPON", "SK-2101", "SK2101",
+              "VEDCA", "ONEBOT", "JINPENG", "JINPEN", "JIPEN", "OIM", "MVP",
+              "TOPMAQ", "KVITOVA", "LAITUNG", "RAINBOW", "VIENTO"]:
+        if k in u:
+            return k
+    m = re.search(r"MARCA[:\s]+([A-Za-z0-9 ]+?)(?:,|Model|$)", titulo, re.I)
+    if m:
+        return m.group(1).strip()
+    return None
+
+
+def _km_from_text(text):
+    if not text:
+        return None
+    m = re.search(r"(\d{2,3})\s*km\b", text, re.I)
+    return int(m.group(1)) if m else None
+
+
+# ==================== NÚCLEO ====================
+def fetch(url):
     for attempt in range(3):
         try:
             r = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
             r.raise_for_status()
+            # requests asume ISO-8859-1 cuando el servidor no declara charset.
+            # vedca.cu lo omite: sin esto 'Autonomía' llega como 'AutonomÃ­a'
+            # y la especificación no se detecta.
+            if not r.encoding or r.encoding.lower() in ("iso-8859-1", "latin-1"):
+                m = re.search(rb"""charset=["']?([\w\-]+)""", r.content[:4096], re.I)
+                r.encoding = m.group(1).decode("ascii", "ignore") if m \
+                    else (r.apparent_encoding or r.encoding)
             return r.text
-        except Exception as e:
+        except Exception:
             if attempt == 2:
                 raise
             time.sleep(2 ** attempt)
-    return ""
 
 
-def scrape_source(key: str, config: dict):
-    """Scrapea una fuente completa: listado + detalle de cada item."""
+def scrape_source(key, config):
     print(f"\n=== {key.upper()} ===")
-    print(f"Fetching listado: {config['url']}")
-
+    print(f"Listado: {config['url']}")
     try:
         html = fetch(config["url"])
     except Exception as e:
-        print(f"  ERROR fetch listado: {e}")
+        print(f"  ERROR listado: {type(e).__name__}: {e}")
         return []
 
     soup = BeautifulSoup(html, "html.parser")
-    parser_func = globals()[config["parser"]]
-    records = list(parser_func(soup, config["url"]))
+    list_fn = globals()[config["list_parser"]]
+    records = list(list_fn(soup, config["url"], config.get("propulsion_hint", "indeterminado")))
     print(f"  Items en listado: {len(records)}")
 
-    # Visitar detalle de cada uno (con delay)
-    enriched = []
-    for i, rec in enumerate(records):
-        detail_url = rec["url"]
-        print(f"  [{i+1}/{len(records)}] Detalle: {detail_url}")
+    detail_fn = globals()[config["detail_parser"]] if config.get("detail_parser") else None
+    if not detail_fn:
+        print("  (sin página de detalle: specs ya extraídas del listado)")
+        return records
+
+    for i, rec in enumerate(records, 1):
+        print(f"  [{i}/{len(records)}] Detalle: {rec['url']}")
         try:
-            detail_html = fetch(detail_url)
-            detail_soup = BeautifulSoup(detail_html, "html.parser")
-            if key == "revolico":
-                parse_detail_revolico(detail_soup, rec)
-            else:
-                parse_detail_woocommerce(detail_soup, rec)
+            detail_fn(BeautifulSoup(fetch(rec["url"]), "html.parser"), rec)
         except Exception as e:
-            print(f"    WARNING detalle falló: {e}")
-        enriched.append(rec)
+            print(f"    WARNING detalle: {type(e).__name__}: {e}")
+            # Sin detalle no hay ni precio ni modelo: no sirve como registro.
+            if rec.get("_requiere_detalle"):
+                rec["_descartar"] = True
         time.sleep(REQUEST_DELAY)
 
-    return enriched
+    descartados = [r for r in records if r.get("_descartar")]
+    if descartados:
+        print(f"  Descartadas {len(descartados)} fichas sin datos útiles o no triciclos")
+        records = [r for r in records if not r.get("_descartar")]
+    return records
 
 
 def main():
     all_records = []
-
     for key, config in SOURCES.items():
         try:
-            records = scrape_source(key, config)
-            all_records.extend(records)
-            print(f"  -> {len(records)} registros OK")
+            recs = scrape_source(key, config)
+            all_records.extend(recs)
+            print(f"  -> {len(recs)} registros")
         except Exception as e:
-            print(f"  ERROR fuente {key}: {e}")
+            print(f"  ERROR fuente {key}: {type(e).__name__}: {e}")
 
-    # Guardar JSONL
+    # Dedupe por URL (conserva el primero)
+    deduped, seen = [], set()
+    for rec in all_records:
+        u = rec.get("url")
+        if u in seen:
+            continue
+        seen.add(u)
+        deduped.append(rec)
+
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        for rec in all_records:
-            # Quitar campos internos que empiezan con _
+        for rec in deduped:
             out = {k: v for k, v in rec.items() if not k.startswith("_")}
             f.write(json.dumps(out, ensure_ascii=False) + "\n")
 
-    print(f"\n=== TOTAL: {len(all_records)} anuncios guardados en {OUTPUT_FILE} ===")
+    print(f"\n=== TOTAL: {len(deduped)} registros únicos en {OUTPUT_FILE} ===")
+    if len(all_records) != len(deduped):
+        print(f"    ({len(all_records) - len(deduped)} duplicados por URL eliminados)")
 
-    # Resumen rápido
-    by_fuente = {}
-    for r in all_records:
-        by_fuente[r["fuente"]] = by_fuente.get(r["fuente"], 0) + 1
-    for src, cnt in by_fuente.items():
-        print(f"  {src}: {cnt}")
+    by_prop, by_src = {}, {}
+    for r in deduped:
+        by_prop[r.get("propulsion", "indeterminado")] = by_prop.get(r.get("propulsion"), 0) + 1
+        by_src[r.get("fuente", "?")] = by_src.get(r.get("fuente", "?"), 0) + 1
+    print("\nPor propulsión:")
+    for p, c in sorted(by_prop.items()):
+        print(f"  {p}: {c}")
+    print("Por fuente:")
+    for s, c in sorted(by_src.items()):
+        print(f"  {s}: {c}")
+
+    if not deduped:
+        print("\nADVERTENCIA: 0 registros.")
 
 
 if __name__ == "__main__":
