@@ -17,3 +17,7 @@ modelo: null, marca: TOPMAQ, motor_w: 2000, bateria_v: 72, bateria_ah: 58, auton
 modelo: BRYDERK, marca: TOPMAQ, motor_w: 2000, bateria_v: 72, bateria_ah: 58, autonomia_km: 120, carga_kg: 1000, precio_usd: 4200, condicion: nuevo, legalizacion: null, vendedor: particular, municipio: null, url: https://www.facebook.com/share/p/1E3J9MDYTU/, fecha_captura: 2026-10-07 11:06, fuentes: Facebook.
 
 modelo: null, marca: STAR, motor_w: 1500, bateria_v: 72, bateria_ah: 58, autonomia_km: 110, carga_kg: 600, precio_usd: 4200, condicion: nuevo, legalizacion: null, vendedor: particular, municipio: null, url: https://www.facebook.com/share/p/19jCXgh9Yy/, fecha_captura: 2026-10-07 11:28, fuentes: Facebook.
+
+modelo: KN-KO13, marca: Jinghan, motor_w: 1500, bateria_v: 60, bateria_ah: 45, autonomia_km: 70, carga_kg: 1000, precio_usd: 3600, condicion: nuevo, legalizacion: null, vendedor: particular, municipio: Plaza de la Revolucion, url: https://www.facebook.com/share/1QmQ1as4iF/, fecha_captura: 2026-10-07 14:57, fuentes: Facebook.
+
+modelo: BRYDERK, marca: TOPMAQ, motor_w: 2000, bateria_v: 72, bateria_ah: 58, autonomia_km: 100, carga_kg: 1000, precio_usd: 4600, condicion: null, legalizacion: null, vendedor: particular, municipio: null, url: https://www.facebook.com/groups/1137682268538035/permalink/1406393771666882/, fecha_captura: 2026-10-07 15:34, fuentes: Facebook.

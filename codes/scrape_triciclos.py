@@ -13,6 +13,11 @@ Fuentes activas:
                   20 fichas en la categoría de triciclos, precio + specs en el texto libre)
   ✅ vedca       — vedca.cu (fabricante estatal; fichas de especificaciones en tabla,
                   SIN precio: aporta carga_kg y autonomia_km, no precio_usd)
+  ✅ vedca_telegram — t.me/s/MotosBateriasElectricasCuba (canal PÚBLICO del fabricante,
+                  enlazado desde vedca.cu; se pagina con ?before= hasta el inicio del
+                  canal: 130 mensajes, 27 con 'tricic', 7 con specs registrables:
+                  C400 x4 —una con precio US$3.170 del 2024-12—, C600 x2, C400A x1.
+                  Aporta los modelos C600 y C400A, que no existen en vedca.cu)
 
 Fuentes descartadas (verificadas muertas/bloqueadas, 2026-10-07):
   ❌ revolico.com, compramasonline.com, islagrande.com, multiservicesxpress.com,
@@ -21,6 +26,15 @@ Fuentes descartadas (verificadas muertas/bloqueadas, 2026-10-07):
   ❌ cubisima.com, autocubana.com, ventacuba.com, ofertas.cu, cubamax.com, cuballama.com,
      dimecuba.com, atrexport.com, mcvcommercial.com → 200 pero sin triciclos
   ❌ html.duckduckgo.com → 403 en queries site:
+  ❌ facebook.com → redirige a /login (400); youtube.com → sin texto SSR util;
+     whatsapp.com/channel de Cuban Cargo → shell sin posts sin la app ('tricic'=0)
+  ❌ elyerroapp.com (empresa de software, 'tricic'=0), supermarket23.com (búsqueda
+     JS, 'tricic'=0 en HTML crudo), katapulk.com ('tricic'=0) → enlaces salientes
+     de las fuentes activas, sondeados 2026-10-07
+  ❌ subdominios casalindashop de otras provincias (santiago, camaguey, holguin,
+     sanctispiritus) → fuera del alcance (15 municipios de La Habana)
+  Nota: las búsquedas internas (catalogsearch de casalinda, /search de cubancargos,
+  ?s= y /search de elyerromenu) no añaden triciclos fuera de los catálogos vivos.
 
 Límite conocido de elyerromenu: el sitemap (129 MB) es la única enumeración completa,
 así que se usa la página de categoría = catálogo vivo. Hay 7 fichas de triciclos sin
@@ -76,6 +90,14 @@ SOURCES = {
         "url": "http://www.vedca.cu/",
         "list_parser": "parse_vedca_list",
         "detail_parser": "parse_vedca_detail",
+        "propulsion_hint": "electrico",
+    },
+    "vedca_telegram": {
+        # Canal público del fabricante (enlace en vedca.cu). t.me/s/ sirve el
+        # historial sin login; el parser pagina internamente con ?before=.
+        "url": "https://t.me/s/MotosBateriasElectricasCuba",
+        "list_parser": "parse_tg_list",
+        "detail_parser": None,          # el mensaje completo ya viene en la lista
         "propulsion_hint": "electrico",
     },
 }
@@ -226,7 +248,8 @@ def normalize_modelo(text):
 
     # 3b) Alias entre fuentes: mismo producto redactado de forma distinta.
     #     vedca.cu dice 'Modelo : C- 400' y elyerromenu 'VEDCA C400' -> mismo modelo.
-    m = re.search(r"VEDCA\s*C[\s\-]*(\d{2,4})", u)
+    #     La letra final cuenta: 'C400A' es un modelo distinto de 'C400'.
+    m = re.search(r"VEDCA\s*C[\s\-]*(\d{2,4}[A-Z]?)", u)
     if m:
         return f"VEDCA C{m.group(1)}"
     if re.search(r"PORTO\s?BELLO", u):
@@ -652,6 +675,132 @@ def parse_vedca_detail(soup, record):
         v, ah = extract_battery(texto)
         if v:
             record["bateria_v"], record["bateria_ah"] = v, ah
+
+
+# ==================== PARSER: TELEGRAM PÚBLICO (canal de VEDCA) ====================
+def _tg_mensajes(soup):
+    """(post_id, fecha_iso, texto) de una página de t.me/s/<canal>."""
+    out = []
+    for m in soup.select(".tgme_widget_message_wrap .tgme_widget_message"):
+        t = m.select_one(".tgme_widget_message_text")
+        d = m.select_one(".tgme_widget_message_date time")
+        pid = (m.get("data-post") or "").rsplit("/", 1)[-1]
+        if t and pid.isdigit():
+            out.append((pid, d.get("datetime", "") if d else "",
+                        clean_text(t.get_text(" ", strip=True))))
+    return out
+
+
+def parse_tg_list(soup, base_url, hint):
+    """Mensajes del canal público con paginación `?before=`.
+
+    No hay detalle separado: cada mensaje ya viene completo en la página de la
+    lista. Solo se registran mensajes de triciclo CON specs o precio; los que
+    son enlaces secos (islagrande bloqueado por Cloudflare) se contabilizan y
+    se descartan, dejando constancia de los modelos que solo existen así.
+
+    CONVENCIÓN de rangos: 'Autonomía: 80-90Km' -> 80 (límite inferior), igual
+    que hace el parser de elyerromenu. No se inventa el punto medio.
+    """
+    canal = base_url.rstrip("/").rsplit("/", 1)[-1]
+    todos = {pid: (f, t) for pid, f, t in _tg_mensajes(soup)}   # pid -> (fecha, texto)
+
+    # Paginación hasta el inicio del canal (~14 páginas, ~15 msgs cada una)
+    while True:
+        ids = [int(p) for p in todos]
+        if min(ids) <= 1:
+            break
+        try:
+            nuevas = _tg_mensajes(BeautifulSoup(
+                fetch(f"{base_url.rstrip('/')}?before={min(ids)}"),
+                "html.parser"))
+        except Exception as e:
+            print(f"  WARNING paginación Telegram: {type(e).__name__}: {e}")
+            break
+        antes = len(todos)
+        for pid, f, t in nuevas:
+            todos.setdefault(pid, (f, t))
+        if len(todos) == antes:               # página ya vista: fin
+            break
+        time.sleep(REQUEST_DELAY)
+
+    print(f"  Mensajes del canal: {len(todos)} (desde el inicio)")
+    sin_tricic = descartados = 0
+    modelos_solo_enlace = set()
+    registros = []
+
+    for pid, (fecha, texto) in sorted(todos.items(), key=lambda kv: int(kv[0])):
+        if not re.search(r"tricic", texto, re.I):
+            sin_tricic += 1
+            continue
+
+        # Modelo: token C<num>[letra] en el cuerpo o en el enlace
+        # (C400, C600, C400A...; ojo: C400A NO debe colapsar en C400).
+        m = re.search(r"\bC[\s\-]?(\d{3,4}[A-Z]?)\b", texto, re.I)
+        modelo = f"VEDCA C{m.group(1).upper()}" if m else None
+
+        auto = re.search(
+            r"autonom\w*[^0-9]{0,22}(\d{1,3})(?:\s*[-–]\s*\d{1,3})?\s*(?:km|kl)(?!/h)",
+            texto, re.I)
+        carga = re.search(
+            r"(?:capacidad de carga|carga m[aá]x\w*|carga)[^0-9]{0,25}"
+            r"(\d{1,4}(?:[.,]\d{1,2})?)\s*kg", texto, re.I)
+        precio = re.search(
+            r"\$\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d{3,5})", texto) or \
+            re.search(r"([\d]{1,3}(?:[.,]\d{3})+)\s*USD", texto)
+        motor = re.search(r"potencia del motor[^0-9]{0,20}(\d{3,5})\s*w", texto, re.I)
+
+        autonomia = int(auto.group(1)) if auto else None
+        carga_kg = _to_int_price(carga.group(1)) if carga else None
+        precio_usd = _to_int_price(precio.group(1)) if precio else None
+        motor_w = int(motor.group(1)) if motor else extract_motor_w(texto)
+        bat_v, bat_ah = extract_battery(texto)
+
+        if not modelo or not any([autonomia, carga_kg, precio_usd, motor_w]):
+            # Enlace seco (p. ej. a islagrande) o noticia institucional.
+            descartados += 1
+            for sm in re.finditer(r"\b(c\d{3,4}[a-z]?|lt\d{3,4})\b", texto, re.I):
+                modelos_solo_enlace.add(sm.group(1).upper())
+            continue
+
+        legalizacion = None
+        for p in [r"factura\w*", r"papeles en regla", r"documentaci[oó]n a nombre",
+                  r"a nombre del cliente", r"directo a chapa", r"lista para chapa"]:
+            mm = re.search(p, texto, re.I)
+            if mm:
+                legalizacion = clean_text(texto[mm.start(): mm.start() + 110])
+                break
+
+        registros.append({
+            "modelo": modelo,
+            "marca": "VEDCA",
+            "propulsion": detect_propulsion(texto, hint),
+            "motor_w": motor_w,
+            "motor_cc": None,
+            "bateria_v": bat_v,
+            "bateria_ah": bat_ah,
+            "autonomia_km": autonomia,
+            "carga_kg": carga_kg,
+            "precio_usd": precio_usd,
+            "precio_desde": False,
+            "ano": None,
+            "condicion": None,
+            "legalizacion": legalizacion,
+            "vendedor_tipo": "fabricante",
+            # Solo si el mensaje declara la dirección del almacén (Boyeros).
+            "municipio_anuncio": "Boyeros" if "Boyeros" in texto else None,
+            "url": f"https://t.me/s/{canal}/{pid}",
+            "fecha_captura": datetime.now().isoformat(),
+            "fecha_anuncio": fecha,
+            "fuente": "vedca_telegram",
+        })
+
+    print(f"  Sin 'tricic': {sin_tricic} | descartados sin datos útiles: {descartados}")
+    retenidos = {r["modelo"].replace("VEDCA ", "") for r in registros}
+    extra = sorted(modelos_solo_enlace - retenidos)
+    if extra:
+        print(f"  Modelos solo en enlaces (sin ficha publicada): {', '.join(extra)}")
+    return registros
 
 
 # ==================== HELPERS ====================
