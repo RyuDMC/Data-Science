@@ -194,3 +194,92 @@ Fuente del protocolo: `Prompts/Journaling Prompt.md`.
 - **Etiquetas:** fuentes-nuevas, telegram, vedca, mina-de-enlaces, c400-conflicto, c600, c400a, catalogsearch, slugs-reciclados
 
 ---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-11 — sesión en opencode; reapertura tras el cierre del 2026-10-07. El usuario pide "sigue el protocolo" y luego elige "arreglar rutas y correr pipeline"
+- **Tarea:** Arrancar según protocolo (leer diario) y desbloquear el pipeline, roto por la reorganización de carpetas hecha entre sesiones
+- **Acción(es):**
+  1. Leído el HANDOFF (desde GitHub) y las 10 entradas del diario; verificado el repo real en el disco externo `17bd76d4` (limpio salvo `data_from_FB`)
+  2. **Detectada la rotura:** los datos se movieron a `Data/raw_data/` y el diario/handoff a `opencode/`, pero `scrape_triciclos.py` y `analisis.py` seguían apuntando a `Data/anuncios_triciclos.jsonl` (inexistente). `analisis.py` habría fallado y el scraper habría creado un archivo divergente en `Data/`
+  3. **Fix de rutas:** `DATA_DIR` sigue siendo `Data/`; se añadió `RAW_DIR = DATA_DIR / "raw_data"`. El scraper escribe en `RAW_DIR` (con `mkdir` previo) y el análisis lee el JSONL de `RAW_DIR`; los CSV procesados y `registro_ubicaciones.csv` siguen en `Data/`. Docstrings actualizados
+  4. Backup del JSONL crudo antes de sobrescribir: `/tmp/opencode/anuncios_triciclos.prebackup.20261011-221602.jsonl`
+  5. Ejecutado `python3 codes/scrape_triciclos.py` (5 fuentes) y `python3 codes/analisis.py`
+- **Resultado:** Pipeline funcionando. Scraper → **33 registros / 28 modelos** (23 eléctrico, 8 híbrido, 2 gasolina) de casalindashop(5), cubancargos(4), elyerromenu(17), vedca_telegram(7). `diff` contra el backup: **idéntico salvo `fecha_captura`** → el scraper es determinista y no se perdió nada. Score regenerado: podio sin cambios (KIVITOVA 2026 0.801; híbrido JINPEN 0.678; gasolina MAGIC BIKE M004 0.625). Git: 5 archivos `M` (2 scripts + 3 datos), sin commitear
+- **Error/éxito:** Éxito. **Falló la fuente `vedca`** (`ConnectionError: Connection reset by peer`); verificado con curl: `vedca.cu` con y sin `www` da reset, sin `www` ni resuelve DNS. Es caída externa (el 7-oct respondía), no un bug. Por eso el total es 33 y no los 35 del handoff: faltan los 2 registros de `vedca.cu` (C-800, C-400 fabricante). El JSONL commiteado por el usuario ya venía sin ellos
+- **Lección:** Cuando el usuario reorganiza carpetas entre sesiones, los scripts con rutas hardcodeadas quedan rotos en silencio: hay que verificar las rutas REALES en disco antes de correr, no fiarse del diario/handoff (repite la lección del 2026-10-07: el error estaba en la ruta). Y antes de que un scraper sobrescriba datos, `diff` contra un backup para confirmar que reproduce y no destruye
+- **Próxima vez:**
+  1. Reintentar `vedca.cu` (fuente del fabricante) cuando vuelva: sin ella no hay C-800 ni specs autoritativas de C-400
+  2. Decidir e integrar `Data/raw_data/data_from_FB` (~14 registros manuales de Facebook): hoy no lo lee ningún script y no es JSON válido
+  3. Pendientes vivos del handoff: conflicto VEDCA C400 (specs/precio/antigüedad), destino de `repuestos_proxy` y `precio_texto_usd`, trabajo de campo (15 municipios, 8h)
+  4. Considerar `.gitignore` para `__pycache__/` (se generó al verificar con `py_compile`)
+- **Etiquetas:** pipeline, rutas, raw_data, reorganizacion, vedca-caido, backup, diff, journaling, sesion-reabierta, determinismo
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-11 (misma sesión) — el usuario pide resolver el conflicto VEDCA C400; elige la regla **B: "oferta viva manda"**
+- **Tarea:** Resolver los 3 frentes del conflicto C400: (a) specs contradictorias, (b) precio 3170 vs 4550, (c) si el anuncio de 2024 pesa igual que el de 2026
+- **Acción(es):**
+  1. Recuperado de la historia de git (commit `4b08583`) el registro del **fabricante**: `vedca.cu/c400.html` → 600 W, 400 kg, 90 km, 60 V **50 Ah**, sin precio (el sitio está caído hoy)
+  2. Releído el **texto crudo** de los mensajes de Telegram (ids 1640/1643/1647/1722) y de la ficha elyerromenu. Hallazgo: `islagrande.com` es un marketplace donde el vendedor es **VEDCA** (SKU `VDC042-C400-60V80AH-Habana`); su C400: 1500 W, 400 kg, 80–90 km, **GelPb 60 V 80 Ah**, **$3.170**
+  3. Verificado en vivo: `islagrande.com` responde **200** (ya no hay Cloudflare), pero la ficha del C400 da **404 (deslistado)** y el C600 está "Out of stock" (en EUR). La **única oferta viva** del C400 es elyerromenu ($4.550)
+  4. **Diagnóstico:** fabricante y tienda de VEDCA coinciden en carga (400) y autonomía (~80–90); el revendedor **infla** (500 kg, 120 km). Motor y batería difieren incluso entre canales de VEDCA (600 W/50 Ah vs 1500 W/80 Ah) → configuraciones/SKU distintos, **no promediable**. La mediana (3860 / 450 kg / 1350 W) **no corresponde a ninguna oferta real**
+  5. **Implementada la regla B en `analisis.py`:** `VENTANA_VIGENCIA="2026-01-01"`; columna `es_viva` (sin fecha de publicación = catálogo vigente; con fecha, solo si cae dentro de la ventana). En `score_modelos()` se descartan las publicaciones históricas **cuando el modelo tiene oferta viva**. Añadidas columnas `oferta_viva`, `n_anuncios` (usadas) y `n_anuncios_total`
+  6. Corregido el comentario del scraper que daba `islagrande` por bloqueada
+- **Resultado:** `VEDCA C400` ahora = oferta viva de elyerromenu: **1200 W · 500 kg · 120 km · 60 V 90 Ah · $4.550**, `oferta_viva=True`, `n_anuncios=1`, `n_anuncios_total=5`. Score **0.563 → 0.647** (sube al puesto 5 en eléctricos). `C600` y `C400A` quedan `oferta_viva=False` (solo canal). Ningún otro modelo cambió
+- **Error/éxito:** Éxito. Corrección de paso: `n_anuncios` contaba solo los anuncios **con precio** (C400 salía "2" cuando son 5); ahora `n_anuncios` = ofertas usadas y `n_anuncios_total` = todas
+- **Lección:** Un promedio entre **procedencias y años** distintos no representa a nadie: la mediana del C400 fabricaba una oferta inexistente. Separar por **vigencia** y por **jerarquía de fuente** elimina el artefacto. Y verificar los sitios en vivo: islagrande pasó de "bloqueado por Cloudflare" a accesible con el producto deslistado
+- **Próxima vez:**
+  1. Evaluar `islagrande.com` como **fuente nueva** (ya responde 200): su categoría lista triciclos VEDCA vivos
+  2. Reintentar `vedca.cu` (fabricante) cuando vuelva
+  3. Llevar la vigencia por fecha también al scraper (hoy `fecha_anuncio` solo viene del canal de Telegram)
+  4. Pendientes vivos: integrar `data_from_FB`, destino de `repuestos_proxy`/`precio_texto_usd`, trabajo de campo
+- **Etiquetas:** c400-conflicto, oferta-viva-manda, vigencia, islagrande, vedca, mediana-artefacto, analisis, decision-usuario
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-11 (misma sesión), tras resolver el C400. El usuario pide "integrar islagrande"
+- **Tarea:** Evaluar `islagrande.com` (candidata del handoff) y decidir cómo integrarla como fuente
+- **Acción(es):**
+  1. **Reconocimiento:** la categoría `/vehiculos-electricos/triciclos.html` lista **11 fichas** (9 en La Habana; 2 de Holguín/Santiago). Todas salen del **Almacén VEDCA, Av. Independencia, Boyeros**
+  2. **Moneda:** el selector Magento (EUR/USD) hace POST a `/directory/currency/switch/` y **exige `form_key`**; incluso extrayéndolo de la página, responde "Invalid Form Key" y los precios siguen en **EUR**. No se convierte (regla del proyecto: no inventar tasa)
+  3. **Specs por variante** (bloque `Details`). **Hallazgo 1 — el "conflicto C400" se disuelve en gran parte: eran SKUs distintos.** Existen C400A (GelPb 80 Ah), C400 (LiFePO4 90 Ah) y C400 (LiFePO4Mn 90 Ah). La oferta viva de elyerromenu (LiFePO4 90 Ah) es **el mismo SKU** que el C400 LiFePO4 de islagrande, que declara **90–100 km** — no los 120 de elyerromenu → confirma que el revendedor infla la autonomía
+  4. **Hallazgo 2:** los 11 triciclos figuran **"Out of stock"** (verificado: sin formulario de compra) → con la regla B, ninguno es oferta viva
+  5. **Preguntas al usuario (2):** precio EUR → *"registrar EUR tal cual"* (recomendado); variantes del mismo modelo → *"separar por variante"* (no promediar químicas distintas)
+- **Resultado:** Plan aprobado: islagrande entra como **catálogo del fabricante** (sustituye a vedca.cu, caído): precio en `precio_valor` + `moneda="EUR"` (nunca en `precio_usd`), `condicion="agotado"`, y **variantes por química de batería**
+- **Error/éxito:** Éxito en la evaluación. El switch de moneda de Magento quedó **descartado** (form_key no persiste); se documenta en la cabecera del scraper
+- **Lección:** Un mismo nombre comercial ("C400") esconde 3 SKUs con química y motor distintos; la química de la batería es el discriminante fiable. Y verificar el **cuerpo** de cada ficha, no el título: la URL del C400 GelPb (que enlazaba el canal) está **deslistada (404)** pero su equivalente C400A sigue en catálogo
+- **Próxima vez:**
+  1. No fusionar C400/C400A/C400 LiFePO4Mn en ninguna tabla: son variantes separadas por decisión del usuario
+  2. Si se necesita el precio en USD de islagrande, pedir al usuario una tasa documentada (no inferirla del selector Magento)
+  3. El C800A (LiFePO4Mn) aparece solo en "Up-Sell Products" de otras fichas y como enlace en el canal: no tiene ficha propia
+- **Etiquetas:** islagrande, fuente-nueva, vedca, moneda-eur, magento-form-key, variantes-bateria, sku, c400-desambiguado, agotado
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-11 (misma sesión) — implementación de la integración de `islagrande` aprobada
+- **Tarea:** Integrar islagrande en scraper y análisis, con precio en EUR y variantes por química, sin romper lo anterior
+- **Acción(es):**
+  1. **Helper `extract_bateria_quimica(text)`**: prioridad LiFePO4Mn → LiFePO4 → GelPb → Plomo → Litio; normaliza subíndices (LiFePO₄→LiFePO4); comprueba **LiFePO4 antes que "gel"** para no confundir la frase "Digital Li/gel with NFC" de las fichas de litio
+  2. **Química en las fuentes existentes**: elyerromenu (cuerpo), vedca (tabla), telegram (texto). Verificado con los textos reales: Kivitova "6 Baterías de GEL", MVP "72V 58Ah GEL", C400A telegram "Gel Plomo", C600 "LiFePO4"
+  3. **`parse_islagrande_list` / `parse_islagrande_detail`**: filtro `"triciclo"` en la URL (excluye el accesorio batería/cargador `bateria-cargador-lifep4-64v-90ah.html`), exclusión de `-holguin`/`-santiago`/`-santaclara`; specs **solo** desde `.product.attribute.description`; autonomía = **límite inferior** (c400_lfp "between 90 and 100 km"→90; c300 "Up to 60… ~40 cargado"→40); carga por etiqueta (net load/load capacity/cargo weight/max payload); `precio_valor` desde `data-price-amount`; `condicion="agotado"`
+  4. **Bug corregido en caliente:** la primera versión acotaba el texto desde la palabra "Details" con una ventana fija → se colaba en la sección **"Up-Sell Products"** y metía "C800A LiFePO4Mn" en la química del **C400A y del SH001** (daban LiFePO4Mn). El contenedor correcto es `.product.attribute.description`
+  5. **`analisis.py`**: campos `bateria_quimica`/`precio_valor`/`moneda`; `modelo_norm` incluye la química **solo en eléctricos** (en híbridos la batería es el extensor, no define variante); `es_viva` excluye `condicion="agotado"`; columnas nuevas `precio_valor` y `monedas`
+  6. **Cabecera del scraper** actualizada: islagrande pasa a fuente activa; vedca.cu marcado caído; nota del selector de moneda
+- **Resultado:** Scraper **33 → 42 registros** (+9 islagrande) / **28 → 35 modelos**. `VEDCA C400 LIFEPO4` mantiene sus números intactos (**1200 W · 500 kg · 120 km · $4.550**, `oferta_viva=True`, `n_anuncios=1/2`; solo cambia el nombre al separarse de GelPb). Nuevos modelos islagrande (todos `oferta_viva=False`, precio en **EUR**): C400 GELPB, C400A GELPB, C400 LIFEPO4MN, C600 LIFEPO4, C600 GELPB, C800B, C800B FOTOVOLTAICO, C300, SH001. Se renombran por química 9 eléctricos de elyerromenu (p. ej. KIVITOVA→…GELPB). **Efecto colateral:** 3 modelos eléctricos no-VEDCA cambian de score (ELECTRICO CARGA TECHO 0.675→0.683; NIPPON SE 0.532→0.591; VIENTO RAPIDO 0.477→0.545) porque el **min/max del grupo eléctrico** se amplía con las specs de islagrande (la normalización es intra-grupo)
+- **Error/éxito:** Éxito tras corregir el bug de contaminación por "Up-Sell". Backup del JSONL en `/tmp/opencode/anuncios_triciclos.prebackup.20261011-231056.jsonl` y del score en `/tmp/opencode/score_modelos.prebackup.*.csv`. Compilan ambos scripts. Git: 6 archivos `M` + `__pycache__/` sin ignorar
+- **Lección:** Acotar la extracción por **contenedor del DOM**, no por ventana de texto: los carruseles de "productos recomendados" contaminan química y specs (mismo patrón que el pie "Categorías" de elyerromenu). Y al añadir una fuente, los scores **relativos** de todo el grupo pueden moverse aunque esa fuente no tenga precio: la normalización min-max es sensible a los extremos nuevos
+- **Próxima vez:**
+  1. Decidir el destino de `Data/raw_data/data_from_FB` (sigue sin integrar)
+  2. Pendientes vivos: `repuestos_proxy` (1 modelo de 35), `precio_texto_usd` (3 anuncios contradictorios), trabajo de campo (15 municipios, 8h)
+  3. Considerar `.gitignore` para `__pycache__/`
+  4. Mejora menor detectada: `extract_battery` de elyerromenu no lee "72v/58ah" (barra) — Kivitova queda sin V/Ah (preexistente)
+- **Etiquetas:** islagrande, integracion, variantes-bateria, quimica-bateria, bug-upsell, precio-eur, es-viva, agotado, analisis, min-max-grupo
+
+---

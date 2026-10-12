@@ -4,11 +4,26 @@ Análisis combinado: datos de campo + datos online.
 Calcula score de "mejor opción" con pesos predefinidos.
 Maneja triciclos eléctricos, híbridos y de combustión.
 
-Estructura del repo (decisión del usuario, 2026-10-07):
-  codes/ -> scripts    Data/ -> datos de entrada y salida
+Estructura del repo (decisión del usuario, ajuste 2026-10-11):
+  codes/ -> scripts    Data/ -> datos procesados y de campo
+  Data/raw_data/ -> datos crudos (entrada del análisis)
+
+Regla de vigencia (decisión del usuario, 2026-10-11 — "oferta viva manda"):
+  - Una oferta es VIGENTE si no tiene fecha de publicación (catálogo actual) o
+    si su fecha cae dentro de VENTANA_VIGENCIA. Las publicaciones de canal fuera
+    de la ventana son históricas y NO puntúan cuando el modelo tiene una oferta
+    vigente. Evita mezclar un precio deslistado de 2024 con el de 2026.
+  - Un producto marcado condicion="agotado" (catálogo islagrande) NO es oferta
+    viva aunque no tenga fecha.
+  - Si un modelo solo existe en publicaciones históricas (p.ej. VEDCA C600/C400A
+    solo en el canal), se conserva con oferta_viva=False.
+
+Variantes (decisión del usuario, 2026-10-11): dos triciclos con el mismo número
+de modelo pero distinta química de batería (p.ej. VEDCA C400 LiFePO4 vs GelPb)
+son modelos distintos: el identificador de agrupación incluye la química.
 
 Uso:
-    python3 codes/analisis.py     # lee Data/*.jsonl|csv, escribe Data/*.csv
+    python3 codes/analisis.py   # lee Data/raw_data/*.jsonl y Data/*.csv; escribe Data/*.csv
 """
 
 import json
@@ -31,16 +46,22 @@ PESOS = {
     "repuestos": 0.05,         # proxy: 1 si modelo aparece en >1 fuente, 0 si no
 }
 
-# Convención de carpetas (decisión del usuario, 2026-10-07):
-#   codes/ -> scripts, Data/ -> datos (entrada y salida)
+# Ventana de vigencia de las ofertas (decisión del usuario, 2026-10-11).
+# Las publicaciones con fecha anterior a esta se consideran históricas.
+VENTANA_VIGENCIA = "2026-01-01"
+
+# Convención de carpetas (ajustada 2026-10-11):
+#   codes/ -> scripts, Data/ -> datos procesados/campo, Data/raw_data/ -> crudos
 DATA_DIR = Path(__file__).resolve().parent.parent / "Data"
+RAW_DIR = DATA_DIR / "raw_data"
 
 ONLINE_FIELDS = [
     "modelo", "marca", "propulsion", "motor_w", "motor_cc",
-    "bateria_v", "bateria_ah", "bateria_wh",
+    "bateria_v", "bateria_ah", "bateria_wh", "bateria_quimica",
     "autonomia_km", "carga_kg", "precio_usd", "precio_desde",
+    "precio_valor", "moneda",
     "ano", "condicion", "legalizacion", "vendedor_tipo",
-    "municipio_anuncio", "url", "fecha_captura", "fuente",
+    "municipio_anuncio", "url", "fecha_captura", "fecha_anuncio", "fuente",
 ]
 
 
@@ -61,11 +82,36 @@ def load_online(jsonl_path: str) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = None
 
-    # Normalizar modelo
-    df["modelo_norm"] = df["modelo"].astype(str).str.upper().str.strip()
+    # Normalizar modelo. Variantes por química de batería (decisión del usuario
+    # 2026-10-11): un 'VEDCA C400' con LiFePO4 y otro con GelPb son productos
+    # distintos; se separan para no promediar specs de variantes diferentes.
+    modelo_base = df["modelo"].astype(str).str.upper().str.strip()
+    quimica = df["bateria_quimica"].fillna("").astype(str).str.upper().str.strip()
+    quimica = quimica.where(quimica.ne("") & quimica.ne("NAN"), "")
+    # Solo en eléctricos: en un híbrido la batería es el extensor de rango, no
+    # la tracción, y su química no define una variante del vehículo.
+    prop_low = df["propulsion"].fillna("indeterminado").astype(str).str.lower()
+    quimica = quimica.where(prop_low.eq("electrico"), "")
+    df["modelo_norm"] = (
+        (modelo_base + " " + quimica)
+        .str.replace(r"\s+", " ", regex=True)
+        .str.strip()
+    )
 
     # Propulsión: normalizar valores
     df["propulsion"] = df["propulsion"].fillna("indeterminado").str.lower()
+
+    # Vigencia de la oferta (decisión del usuario, 2026-10-11): sin fecha de
+    # publicación = catálogo vigente; con fecha, vigente solo si cae dentro de
+    # la ventana. Las publicaciones de canal antiguas (2024-2025) quedan fuera.
+    df["fecha_anuncio_dt"] = pd.to_datetime(df.get("fecha_anuncio"), utc=True, errors="coerce")
+    # Un producto agotado no es oferta viva aunque no tenga fecha (decisión del
+    # usuario 2026-10-11: islagrande publica todo su catálogo como agotado).
+    df["agotado"] = df["condicion"].astype(str).str.lower().str.strip().eq("agotado")
+    df["es_viva"] = (
+        df["fecha_anuncio_dt"].isna()
+        | (df["fecha_anuncio_dt"] >= pd.Timestamp(VENTANA_VIGENCIA, tz="UTC"))
+    ) & ~df["agotado"]
 
     # Batería Wh
     df["bateria_wh"] = df["bateria_v"] * df["bateria_ah"]
@@ -103,19 +149,38 @@ def score_modelos(df_online: pd.DataFrame) -> pd.DataFrame:
     if df_online.empty:
         return pd.DataFrame()
 
-    # Agregar por modelo + propulsión
-    agg = df_online.groupby(["modelo_norm", "propulsion"]).agg(
+    # Filtro de vigencia (decisión usuario 2026-10-11: "oferta viva manda").
+    # Si el modelo tiene alguna oferta vigente, se descartan sus publicaciones
+    # históricas; si solo tiene históricas, se conserva (oferta_viva=False).
+    if "es_viva" in df_online.columns:
+        tiene_viva = df_online.groupby("modelo_norm")["es_viva"].transform("any")
+        base = df_online[df_online["es_viva"] | ~tiene_viva]
+    else:
+        base = df_online
+
+    # Agregar por modelo + propulsión (solo ofertas vigentes cuando existan)
+    agg = base.groupby(["modelo_norm", "propulsion"]).agg(
         precio_usd=("precio_usd", "median"),
         autonomia_km=("autonomia_km", "median"),
         carga_kg=("carga_kg", "median"),
         legalidad_bin=("legalidad_bin", "max"),
         repuestos_proxy=("repuestos_proxy", "max"),
-        n_anuncios=("precio_usd", "count"),
+        n_anuncios=("modelo", "count"),          # ofertas usadas (vigentes)
         motor_w_med=("motor_w", "median"),
         motor_cc_med=("motor_cc", "median"),
         marcas=("marca", lambda x: list(x.dropna().unique())),
         fuentes=("fuente", lambda x: list(x.dropna().unique())),
+        precio_valor=("precio_valor", "median"),   # EUR tal cual (no comparable con precio_usd)
+        monedas=("moneda", lambda x: list(x.dropna().unique())),
     ).reset_index()
+
+    # Anotar total de anuncios (incl. históricos) y si hay oferta vigente
+    por_modelo = df_online.groupby("modelo_norm")
+    agg["n_anuncios_total"] = agg["modelo_norm"].map(por_modelo.size())
+    if "es_viva" in df_online.columns:
+        agg["oferta_viva"] = agg["modelo_norm"].map(por_modelo["es_viva"].any())
+    else:
+        agg["oferta_viva"] = True
 
     # Normalizar cada criterio a 0-1 (min-max) DENTRO de cada grupo de propulsión
     # para comparar eléctricos con eléctricos y gasolina con gasolina
@@ -191,7 +256,7 @@ def comparar_campo_online(df_campo: pd.DataFrame, df_online: pd.DataFrame) -> pd
 
 
 def main():
-    online_path = DATA_DIR / "anuncios_triciclos.jsonl"
+    online_path = RAW_DIR / "anuncios_triciclos.jsonl"
     campo_path = DATA_DIR / "registro_ubicaciones.csv"
 
     print("=== CARGANDO DATOS ===")
@@ -213,8 +278,10 @@ def main():
         for prop in df_score["propulsion"].unique():
             sub = df_score[df_score["propulsion"] == prop].head(10)
             print(f"\n--- {prop.upper()} ---")
-            cols = ["modelo_norm", "score", "n_criterios", "precio_usd", "autonomia_km", "carga_kg",
-                    "legalidad_bin", "repuestos_proxy", "n_anuncios", "motor_w_med", "motor_cc_med"]
+            cols = ["modelo_norm", "score", "n_criterios", "precio_usd", "precio_valor", "monedas",
+                    "autonomia_km", "carga_kg",
+                    "legalidad_bin", "repuestos_proxy", "oferta_viva", "n_anuncios", "n_anuncios_total",
+                    "motor_w_med", "motor_cc_med"]
             print(sub[cols].to_string(index=False))
 
         df_score.to_csv(DATA_DIR / "score_modelos.csv", index=False)

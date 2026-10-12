@@ -2,8 +2,9 @@
 """
 Scraper de triciclos para fuentes cubanas VERIFICADAS (2026-10-07).
 
-Estructura del repo (decisión del usuario, 2026-10-07):
-  codes/ -> scripts    Data/ -> datos de entrada y salida
+Estructura del repo (decisión del usuario, ajuste 2026-10-11):
+  codes/ -> scripts    Data/ -> datos procesados y de campo
+  Data/raw_data/ -> datos crudos (salida del scraper)
 
 Fuentes activas:
   ✅ casalinda   — habana.casalindashop.com  (Magento; 2 combustión + 3 eléctricos, con precio)
@@ -11,17 +12,29 @@ Fuentes activas:
                   specs de la tabla 'Especificaciones técnicas' del detalle)
   ✅ elyerromenu — elyerromenu.com/b/cuba-sobre-ruedas (clasificados comerciales, Boyeros;
                   20 fichas en la categoría de triciclos, precio + specs en el texto libre)
-  ✅ vedca       — vedca.cu (fabricante estatal; fichas de especificaciones en tabla,
-                  SIN precio: aporta carga_kg y autonomia_km, no precio_usd)
+  ⚠️ vedca       — vedca.cu (fabricante estatal; fichas de especificaciones en tabla,
+                  SIN precio: aporta carga_kg y autonomia_km, no precio_usd).
+                  CAÍDO al 2026-10-11 (Connection reset); se conserva por si vuelve.
   ✅ vedca_telegram — t.me/s/MotosBateriasElectricasCuba (canal PÚBLICO del fabricante,
                   enlazado desde vedca.cu; se pagina con ?before= hasta el inicio del
                   canal: 130 mensajes, 27 con 'tricic', 7 con specs registrables:
                   C400 x4 —una con precio US$3.170 del 2024-12—, C600 x2, C400A x1.
                   Aporta los modelos C600 y C400A, que no existen en vedca.cu)
+  ✅ islagrande  — islagrande.com/vehiculos-electricos/triciclos.html (tienda oficial
+                  del fabricante VEDCA, Magento). 11 fichas (9 en La Habana; se excluyen
+                  las variantes de Holguín/Santiago/Santa Clara), specs por variante
+                  (química de batería) y estado de stock; al 2026-10-11 TODOS
+                  'Out of stock' -> condicion="agotado" (no puntúan como oferta viva).
+                  Precios en EUR (precio_valor + moneda="EUR"): el selector de moneda
+                  de Magento exige form_key y no persiste, así que NO se convierte a
+                  USD (no se inventa tasa). Sustituye a vedca.cu (caído) como catálogo
+                  del fabricante y desambigua las variantes C400/C400A/C600/C800B.
 
 Fuentes descartadas (verificadas muertas/bloqueadas, 2026-10-07):
-  ❌ revolico.com, compramasonline.com, islagrande.com, multiservicesxpress.com,
+  ❌ revolico.com, compramasonline.com, multiservicesxpress.com,
      patuisla.com, mundoenvio.com, envioscubamerica.com → reto de Cloudflare (403 o challenge)
+  ❌ vedca.cu → caído (Connection reset by peer; DNS no resuelve) en 2026-10-11.
+     Su catálogo se cubre ahora vía islagrande (misma empresa/fabricante).
   ❌ kikihabana.com → DNS no resuelve
   ❌ cubisima.com, autocubana.com, ventacuba.com, ofertas.cu, cubamax.com, cuballama.com,
      dimecuba.com, atrexport.com, mcvcommercial.com → 200 pero sin triciclos
@@ -41,7 +54,7 @@ así que se usa la página de categoría = catálogo vivo. Hay 7 fichas de trici
 categorizar (archivadas, una marcada "Agotado") que quedan fuera.
 
 Uso:
-    python3 codes/scrape_triciclos.py      # escribe Data/anuncios_triciclos.jsonl
+    python3 codes/scrape_triciclos.py      # escribe Data/raw_data/anuncios_triciclos.jsonl
 """
 
 import json
@@ -55,9 +68,10 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 
-# Convención de carpetas (decisión del usuario, 2026-10-07):
-#   codes/ -> scripts, Data/ -> datos (entrada y salida)
+# Convención de carpetas (ajustada 2026-10-11):
+#   codes/ -> scripts, Data/ -> datos procesados/campo, Data/raw_data/ -> crudos
 DATA_DIR = Path(__file__).resolve().parent.parent / "Data"
+RAW_DIR = DATA_DIR / "raw_data"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -100,9 +114,19 @@ SOURCES = {
         "detail_parser": None,          # el mensaje completo ya viene en la lista
         "propulsion_hint": "electrico",
     },
+    "islagrande": {
+        # Tienda oficial del fabricante (VEDCA): catálogo Magento, precios en
+        # EUR (no hay forma limpia de obtener USD: el selector exige form_key).
+        # Es el catálogo del fabricante que faltaba desde que vedca.cu cayó:
+        # aporta specs por variante (química de batería) y estado de stock.
+        "url": "https://islagrande.com/vehiculos-electricos/triciclos.html",
+        "list_parser": "parse_islagrande_list",
+        "detail_parser": "parse_islagrande_detail",
+        "propulsion_hint": "electrico",
+    },
 }
 
-OUTPUT_FILE = DATA_DIR / "anuncios_triciclos.jsonl"
+OUTPUT_FILE = RAW_DIR / "anuncios_triciclos.jsonl"
 REQUEST_DELAY = 2
 TIMEOUT = 30
 
@@ -184,6 +208,30 @@ def extract_battery(text):
     if v and ah:
         return int(v.group(1)), int(ah.group(1))
     return None, None
+
+
+def extract_bateria_quimica(text):
+    """Química de la batería declarada en el texto, normalizada (variante).
+
+    Orden de prioridad: LiFePO4Mn -> LiFePO4 -> GelPb -> Plomo -> Litio.
+    LiFePO4 se comprueba ANTES que Gel porque fichas de LiFePO4 incluyen la
+    frase 'Digital Li/gel with NFC'; si se buscara 'gel' primero se
+    clasificarían como plomo. Devuelve None si el texto no la declara.
+    """
+    if not text:
+        return None
+    t = text.lower().translate(str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789"))
+    if re.search(r"lifepo\s*4\s*mn|life\s*-?\s*po\s*4\s*mn|lifepo4mn", t):
+        return "LIFEPO4MN"
+    if re.search(r"lifepo\s*4|life\s*-?\s*po\s*4|lifepo\b", t):
+        return "LIFEPO4"
+    if re.search(r"gel\s*-?\s*(pb|plomo|lead)|\bgelpb\b|\bgel\b", t):
+        return "GELPB"
+    if re.search(r"plomo|lead\s*acid|[áa]cido", t):
+        return "PLOMO"
+    if re.search(r"li-?ion\b|litio", t):
+        return "LITIO"
+    return None
 
 
 def extract_carga_kg(text):
@@ -596,6 +644,8 @@ def parse_elyerromenu_detail(soup, record):
         if m:
             record["bateria_ah"], record["bateria_v"] = int(m.group(1)), int(m.group(2))
 
+    record["bateria_quimica"] = extract_bateria_quimica(cuerpo)
+
     m = re.search(r"(\d{1,4})\s*cc\b", cuerpo, re.I)
     record["motor_cc"] = int(m.group(1)) if m else None
 
@@ -675,6 +725,9 @@ def parse_vedca_detail(soup, record):
         v, ah = extract_battery(texto)
         if v:
             record["bateria_v"], record["bateria_ah"] = v, ah
+
+    record["bateria_quimica"] = extract_bateria_quimica(
+        specs.get("Tipo de batería", "") + " " + texto)
 
 
 # ==================== PARSER: TELEGRAM PÚBLICO (canal de VEDCA) ====================
@@ -779,6 +832,7 @@ def parse_tg_list(soup, base_url, hint):
             "motor_cc": None,
             "bateria_v": bat_v,
             "bateria_ah": bat_ah,
+            "bateria_quimica": extract_bateria_quimica(texto),
             "autonomia_km": autonomia,
             "carga_kg": carga_kg,
             "precio_usd": precio_usd,
@@ -801,6 +855,152 @@ def parse_tg_list(soup, base_url, hint):
     if extra:
         print(f"  Modelos solo en enlaces (sin ficha publicada): {', '.join(extra)}")
     return registros
+
+
+# ==================== PARSER: ISLAGRANDE (tienda del fabricante VEDCA) ====================
+# Catálogo Magento de la tienda oficial de VEDCA. Precios en EUR (el selector
+# de moneda exige form_key y no persiste: no hay USD limpio). Todos los
+# triciclos figuran 'Out of stock' al 2026-10-11 -> condicion="agotado": con la
+# regla "oferta viva manda" no puntúan precio, pero aportan specs por VARIANTE
+# (química de batería) del catálogo del fabricante, que faltaba desde que
+# vedca.cu cayó.
+# Alcance La Habana: se excluyen las variantes -holguin / -santiago / -santaclara.
+_ISLA_NO_HABANA = re.compile(r"-(holguin|santiago|santaclara)\.html$", re.I)
+
+
+def _isla_base_model(slug):
+    """Modelo base a partir del slug; conserva la variante no-química
+    (p. ej. C800B FOTOVOLTAICO). La química se guarda aparte (bateria_quimica)."""
+    s = slug.lower()
+    if "sh001" in s:
+        return "VEDCA SH001"
+    if "c800b" in s:
+        return "VEDCA C800B" + (" FOTOVOLTAICO" if "fotovoltaico" in s else "")
+    if "c600" in s:
+        return "VEDCA C600"
+    if "c400a" in s:
+        return "VEDCA C400A"
+    if "c400" in s:
+        return "VEDCA C400"
+    if "c300" in s:
+        return "VEDCA C300"
+    return None
+
+
+def _isla_rango_km(bloque):
+    """Límite inferior de la autonomía declarada (convención del proyecto).
+
+    'between 90 and 100 km' -> 90 ; '50 - 70 km' -> 50 ; '80 km' -> 80 ;
+    'Up to 60 km ... approximately 40 km' -> 40 (el menor de los km citados).
+    """
+    m = re.search(r"(?:average\s+range|range|autonom\w*)[^.]{0,140}", bloque, re.I)
+    s = m.group(0) if m else bloque[:200]
+    pares = re.findall(r"(\d{1,3})\s*(?:-|–|—|to|and|a)\s*(\d{1,3})\s*km", s, re.I)
+    if pares:
+        return min(int(x) for par in pares for x in par)
+    nums = re.findall(r"(\d{1,3})\s*km", s, re.I)
+    return min(int(n) for n in nums) if nums else None
+
+
+def parse_islagrande_list(soup, base_url, hint):
+    """Solo aporta la URL de cada ficha (precio y specs están en el detalle)."""
+    seen = set()
+    for a in soup.select("a.product-item-link[href]"):
+        url = urljoin(base_url, a.get("href", ""))
+        if not url.endswith(".html") or url in seen:
+            continue
+        if "triciclo" not in url.lower():
+            continue                      # accesorios (p. ej. batería/cargador)
+        if _ISLA_NO_HABANA.search(urlparse(url).path):
+            continue                      # variante de otra provincia
+        seen.add(url)
+        yield {
+            "modelo": None,
+            "marca": "VEDCA",
+            "propulsion": "electrico",
+            "motor_w": None,
+            "motor_cc": None,
+            "bateria_v": None,
+            "bateria_ah": None,
+            "bateria_quimica": None,
+            "autonomia_km": None,
+            "carga_kg": None,
+            "precio_usd": None,           # se publica en EUR (precio_valor)
+            "precio_desde": False,
+            "precio_valor": None,
+            "moneda": "EUR",
+            "ano": None,
+            "condicion": None,
+            "legalizacion": None,
+            "vendedor_tipo": "fabricante",
+            "municipio_anuncio": "Boyeros",   # Almacén VEDCA, Av. Independencia
+            "url": url,
+            "fecha_captura": datetime.now().isoformat(),
+            "fuente": "islagrande",
+            "_requiere_detalle": True,
+        }
+
+
+def parse_islagrande_detail(soup, record):
+    slug = urlparse(record["url"]).path.rsplit("/", 1)[-1]
+    if _ISLA_NO_HABANA.search(urlparse(record["url"]).path):
+        record["_descartar"] = True
+        return
+
+    base = _isla_base_model(slug)
+    if not base:
+        record["_descartar"] = True
+        return
+    record["modelo"] = base
+
+    # Texto para el estado de stock (toda la página).
+    for t in soup(["script", "style", "head", "nav", "footer", "svg", "header", "noscript"]):
+        t.decompose()
+    texto = clean_text(soup.get_text(" ", strip=True))
+
+    # Specs: SOLO la descripción del producto. La sección 'Up-Sell Products'
+    # contamina la química (p. ej. metía C800A LiFePO4Mn en la ficha del C400A).
+    desc = soup.select_one(".product.attribute.description") or soup.select_one("#description")
+    bloque = clean_text(desc.get_text(" ", strip=True)) if desc else texto
+
+    record["bateria_quimica"] = extract_bateria_quimica(bloque)
+
+    # Batería V/Ah: primero la viñeta 'Battery:', luego el bloque completo.
+    mb = re.search(r"battery\s*[:\-]\s*([^•\.]{0,50})", bloque, re.I)
+    v, ah = extract_battery(mb.group(1) if mb else bloque)
+    if not v:
+        v, ah = extract_battery(bloque)
+    record["bateria_v"], record["bateria_ah"] = v, ah
+
+    # Motor: 'Motor Power: 60V 1500W' / 'Motor: 60V 1000W'
+    mm = re.search(r"motor(?:\s*power)?\s*[:\-]?\s*(?:\d{2,3}\s*v\s*)?(\d{3,5})\s*w",
+                   bloque, re.I)
+    record["motor_w"] = int(mm.group(1)) if mm else extract_motor_w(bloque)
+
+    record["autonomia_km"] = _isla_rango_km(bloque)
+
+    # Carga: la etiqueta explícita manda sobre cualquier otro 'NNN kg'.
+    for pat in [r"net load[^0-9]{0,20}(\d{2,4})\s*kg",
+                r"load capacity[^0-9]{0,20}(\d{2,4})\s*kg",
+                r"cargo weight[^0-9]{0,20}(\d{2,4})\s*kg",
+                r"maximum payload[^0-9]{0,20}(\d{2,4})\s*kg",
+                r"capacidad de carga[^0-9]{0,20}(\d{2,4})\s*kg"]:
+        mc = re.search(pat, bloque, re.I)
+        if mc:
+            record["carga_kg"] = int(mc.group(1))
+            break
+
+    # Precio publicado en EUR (no se convierte: no se inventa tasa de cambio).
+    mp = re.search(r'data-price-amount="([0-9.]+)"', str(soup))
+    if mp:
+        try:
+            record["precio_valor"] = float(mp.group(1))
+        except ValueError:
+            record["precio_valor"] = None
+
+    # Stock: al 2026-10-11 todos figuran agotados -> no son oferta viva.
+    tl = texto.lower()
+    record["condicion"] = "agotado" if ("out of stock" in tl or "agotado" in tl) else "nuevo"
 
 
 # ==================== HELPERS ====================
@@ -902,6 +1102,7 @@ def main():
         seen.add(u)
         deduped.append(rec)
 
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         for rec in deduped:
             out = {k: v for k, v in rec.items() if not k.startswith("_")}
