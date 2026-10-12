@@ -283,3 +283,64 @@ Fuente del protocolo: `Prompts/Journaling Prompt.md`.
 - **Etiquetas:** islagrande, integracion, variantes-bateria, quimica-bateria, bug-upsell, precio-eur, es-viva, agotado, analisis, min-max-grupo
 
 ---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-12 (sesión nueva) — el usuario pide "extraer modelos de catálogos pertenecientes a empresas"
+- **Tarea:** Extraer fichas de triciclos de **catálogos propios de empresas** (distinto de los clasificados), en un **dataset aparte por empresa**, sin tocar el pipeline de triciclos
+- **Acción(es):**
+  1. **Aclaración de criterio (preguntas al usuario):** quiere *empresas nuevas que yo busque* (no las ya conocidas), *fichas completas como islagrande*, *dataset aparte por empresa*, alcance *triciclos, La Habana*. Formato elegido: **solo JSONL por empresa**
+  2. **Investigación:** las MIPYMEs cubanas (MVP, MZ Productions, Kvitova…) publican **solo en Revolico/Facebook** (bloqueados); su web propia es mínima (**VoltHabana** existe pero su catálogo no tiene triciclos). Los catálogos propios extraíbles son tiendas que **envían a Cuba**. Candidatas con triciclos y entrega en La Habana: **KikiHabana, MZ Products, A Cuba Envíos Cargo, Mr Cuba Miami**. Descartadas: `kubazuki.com` ("pronto en línea"), `TriSol` (Pinar del Río, kits solares), `vedca.cu` (caído), `SuperMarket23`/`TodoTriciclos` (SPA/sin respuesta)
+  3. **Nuevo script `codes/scrape_empresas.py`** (independiente): reutiliza helpers de `scrape_triciclos` (import, sin ejecutar su `main`); escribe `Data/empresas/<empresa>.jsonl` con el mismo esquema del crudo (+ `disponibilidad` y `fuente`/`vendedor_tipo="empresa"`); precios en **USD** (`precio_usd` + `moneda="USD"`)
+  4. **Bugs corregidos durante el reconocimiento:**
+     - **KikiHabana:** la categoría "carritos y triciclos" mezcla **cuatriciclos**. El "Carrito eléctrico JY-MX8" dice "4 ruedas" y el "MAGIKBIKE" se llama "Carrito": se excluyen (`carrito`/`4 ruedas`). ONEBOT T414, aunque su slug es `carrito-…`, se anuncia como "Triciclo eléctrico" → se conserva
+     - **Batería cirílica:** RALLY PASAJEROS declara "120 **АН**" (А/Н cirílicas) → no se detectaba; se normalizan cirílicos a latinos antes de buscar V/Ah
+     - **Motor con miles por espacio:** MZ "E-CARGO ULTRA" escribe "3 000W" → `extract_motor_w` devolvía `0`; se juntan miles separados por espacio
+     - **Autonomía vs. velocidad:** KikiHabana usa "Kilometraje de conducción" (no "autonomía") y "Velocidad máxima 70 km/h"; se exige etiqueta de autonomía (autonomía/rango/recorrido/kilometraje/range) y se descartan los `km/h` (BD TAXI 70→**110**, MIGHONG 70→**100**, RALLY PASAJEROS → **70**)
+     - **Carga vs. peso neto:** HUAIHAI daba 260 kg (peso **neto**) → se prioriza "capacidad de carga"/"carga útil"/"peso máx" → **780 kg**
+     - **MZ:** la página `?s=triciclo` incluye enlaces de "compartir en Facebook" con "triciclo" en la URL → filtro por dominio
+- **Resultado:** 4 datasets en `Data/empresas/`: **kikihabana 9**, **mzproducts 7**, **acubaenvioscargo 3**, **mrcuba 2** (21 fichas). MZ: 5 eléctricos + 2 gasolina, specs etiquetadas. KikiHabana: 9 eléctricos con batería/motor/autonomía/carga. A Cuba: 3 eléctricos (specs solo del título, sin página de detalle). Mr Cuba: **fino** (Wix, 2 fichas: solo modelo/precio)
+- **Error/éxito:** Éxito. Complica el caso MZ "Triciclo Eléctrico Combustión 200cc" (slug) cuyo H1 dice "de Combustión Pasajero 200cc" → clasificado `gasolina` por el H1 (a revisar si fuera híbrido). Git: `codes/scrape_empresas.py`, `Data/empresas/` y `__pycache__` **sin commitear** (decisión del usuario)
+- **Lección:** Partir del **H1/slug de la ficha**, no del nombre de la categoría: las tiendas cuelgan cuatriciclos bajo "triciclos" y usan slugs engañosos (`carrito-…`). Y normalizar la entrada (cirílico, miles con espacio) antes de aplicar los regex de specs, o fallan en silencio (V/Ah, motor)
+- **Próxima vez:**
+  1. Decidir con el usuario si estos datasets se integran al pipeline o quedan aparte; completar `marca` (p. ej. "MZ PRODUCTS") si se quiere
+  2. Revisar con el usuario: MAGIKBIKE (excluido como "carrito", ¿es triciclo?) y MZ 200cc (¿gasolina o híbrido?)
+  3. Mr Cuba (Wix) es frágil y sin specs: valorar si merece seguir o se descarta
+  4. Pendientes heredados: integrar `Data/raw_data/data_from_FB`; reintentar vedca.cu; `repuestos_proxy` y `precio_texto_usd`; trabajo de campo
+- **Etiquetas:** empresas, catalogos, dataset-aparte, kikihabana, mzproducts, acubaenvioscargo, mrcuba, wix, woocommerce, cuatriciclo-excluido, cirilico, specs, sin-commit
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-12 (misma sesión) — revisiones del usuario sobre el dataset de empresas
+- **Tarea:** Aplicar las 4 decisiones del usuario sobre los datasets `Data/empresas/`
+- **Acción(es):**
+  1. **Enlace del conflicto entregado al usuario:** `mzproducts.com/producto/triciclo-electrico-combustion-200cc-mz-products-c-runer/` (H1 dice "de Combustión", pero el slug dice "electrico-combustion")
+  2. **Propulsión MZ 200cc → `hibrido`** (decisión del usuario; antes `gasolina` por el H1). Se detecta combinando **título + slug** en `_propulsion_catalogo`: "electrico"+combustión → híbrido. La gasolina 250cc (slug solo "combustion") mantiene `gasolina`
+  3. **Marca MZ → "MZ PRODUCTS"** (antes `null`): `st._marca_from_titulo` no la reconoce, se rellena con el campo de la empresa
+  4. **Mr Cuba → se mantiene** (aunque sea fino: Wix, 2 fichas sin specs)
+  5. **Bug de contaminación evitado en MZ:** antes, si la ficha no tenía el bloque "Potencia del motor", se usaba **toda la página** como `ficha` → los "productos relacionados" podían colarse en specs. Ahora se extrae SOLO de `div.wd-single-content` (bloque de descripción del producto verificado en ambas plantillas); si no existe, `ficha=""` (no se usan specs de la página entera)
+- **Resultado:** Valor final `TRICICLO DE COMBUSTION PASAJERO 200CC MZ PRODUCTS` → `propulsion=hibrido`, `marca=MZ PRODUCTS`, `cc=200`, `carga=2000` (de su propia descripción). Las 7 fichas MZ regeneradas sin contaminación
+- **Error/éxito:** Éxito. El 200cc no tiene specs de batería/motor en la ficha (solo "Motor: 200 cc"): el `híbrido` se apoya en el slug + confirmación del usuario, no en el texto libre
+- **Lección:** Cuando una página no declara specs con las anclas esperadas, **no** retroceder a la página entera: los carruseles de productos relacionados vuelven a contaminar (el mismo patrón del bug "Up-Sell" de islagrande). Mejor contenedor del DOM (`div.wd-single-content`)
+- **Próxima vez:** pendientes heredados siguen vivos (integrar `data_from_FB`, `repuestos_proxy`, `precio_texto_usd`, trabajo de campo, vedca.cu); decidir si estos datasets de empresas se integran al pipeline o quedan aparte
+- **Etiquetas:** empresas, mzproducts, hibrido, gasolina-200cc, marca, wd-single-content, contaminacion-related-products, sin-commit
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-12 (misma sesión) — el usuario pide cerrar la sesión
+- **Tarea:** Cierre de sesión: escribir el HANDOFF en el archivo correcto y reflejar el cierre en el diario
+- **Acción(es):**
+  1. El usuario pidió "cerrar sesión"; el primer handoff quedó **solo en el chat**, no en archivo
+  2. El usuario lo señaló ("¿dónde actualizaste el handoff?"): la convención de la entrada 2026-10-05 es que el handoff se **escribe como archivo** al cerrar sesión (y no se mezcla con el diario). Se sobrescribió `opencode/HANDOFF.md` (cierre 2026-10-12, sesión 4) con las 5 secciones del prompt, incluido el nuevo estudio de empresas
+  3. Verificado el working tree: `M` journal + handoff, `??` scrape_empresas.py, `??` Data/empresas/, `??` __pycache__. Nada commitado (el usuario revisa antes)
+- **Resultado:** Handoff en `opencode/HANDOFF.md`; diario con esta entrada de cierre. Trabajo sin commitear listo para revisión del usuario
+- **Error/éxito:** Éxito tras corrección: el primer cierre omitió el paso de escribir el handoff en disco
+- **Lección:** "Cerrar sesión" incluye materializar el handoff en `opencode/HANDOFF.md`, no solo mostrarlo en el chat; verificar el archivo tras escribirlo (como se hace con los datos)
+- **Próxima vez:** Al pedir cierre, escribir handoff + entrada de diario de forma explícita (no asumir que mostrar en el chat basta)
+- **Etiquetas:** cierre-de-sesion, handoff, journaling, protocolo, sin-commit
+
+---
