@@ -56,4 +56,4 @@ modelo: null, marca: ONEBOT, motor_w: 1200, bateria_v: 72, bateria_ah: 58, auton
 
 modelo: BRYDERK-TOPMAQ, marca: TOPMAQ, motor_w: 2000, bateria_v: 72, bateria_ah: 58, autonomia_km: 80, carga_kg: 1000, precio_usd: 4400, condicion: null, legalizacion: si, vendedor: particular, municipio: null, url: https://www.facebook.com/groups/803710967828456/permalink/1654867952712749/, fecha_captura: 2026-10-11 23:26, fuentes: Facebook.
 
-
+modelo: MVP power, marca: MVP, motor_w: 1200, bateria_v: 72, bateria_ah: 58, autonomia_km: 100, carga_kg: 600, precio_usd: 4100, condicion: nuevo, legalizacion: si, vendedor: particular, municipio: null, url: https://www.facebook.com/share/p/1HFcvNhJu9/, fecha_captura: 2026-10-11 23:40, fuentes: Facebook.
