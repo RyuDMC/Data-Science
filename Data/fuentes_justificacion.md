@@ -104,6 +104,3 @@ Links verificados con HTTP 200 el 2026-10-15 (⚠️ marcados: solo navegador).
 | Análisis de sensibilidad de pesos (±25%) | Niu et al. (2024), IEEE Access 12:27931–27946 |
 | Orden precio > autonomía > carga | Hidrue et al. (2011); Hong et al. (2024) |
 | Declarar cobertura (`n_criterios`) y datos ausentes | Transparencia de criterios MCDM (Trung & Ersoy, 2025) |
-
-**Pendiente sugerido:** ejecutar en `analisis.py` el análisis de sensibilidad
-(pesos ±25%) para demostrar que los podios no cambian.
