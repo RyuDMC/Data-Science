@@ -344,3 +344,84 @@ Fuente del protocolo: `Prompts/Journaling Prompt.md`.
 - **Etiquetas:** cierre-de-sesion, handoff, journaling, protocolo, sin-commit
 
 ---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-14 — sesión nueva; el usuario decide integrar Facebook como fuente completa
+- **Tarea:** Integrar `Data/raw_data/data_from_FB` como 6ª fuente del pipeline y crear la capa de datos limpios `Data/clean_data/`
+- **Acción(es):**
+  1. Creado `codes/parse_fb.py` → escribe `Data/clean_data/anuncios_facebook.jsonl` (**29 registros**; 1 excluido: Artemisa). Correcciones durante el parseo: fallback de `modelo` nulo → marca; bug de sintaxis `null.`; `autonomia`→`autonomia_km`; `url` sin dos puntos; unificación `fuente`/`fuentes`; normalización de mayúsculas de marca/modelo; "Habana"→null
+  2. Creada la capa `Data/clean_data/` (misma altura que `raw_data`): copiados `anuncios_triciclos.jsonl` y los 4 JSONL de `Data/empresas/`
+  3. `codes/analisis.py` ahora lee de `CLEAN_DIR` (ambos anuncios: scraper + Facebook) y escribe sus salidas en `clean_data/`; añadida la tabla `MODELO_ALIAS` + `apply_alias` para fusionar nombres de Facebook con los del scraper
+- **Resultado:** 42 anuncios scraper + 29 Facebook = **71 anuncios → 43 modelos únicos** (33 eléctricos, 8 híbridos, 2 gasolina). Alias aplicados: BRIDERK→`TRICICLOS TOPMAQ BRIDERK 2026 GELPB`; MVP POWER→`…MVP POWER GELPB`; ONEBOT→`ONEBOT CLASIC 2026`; KIVITOVA→`…KIVITOVA 2026 GELPB`; TOPMAQ→BRIDERK; VIENTO RAPIDO→`ELECTRICO VIENTO RAPIDO`; MAF→`…MAF BATERIA LIFEPO4`; JINPENG→`JINPENG GELPB`
+- **Error/éxito:** Éxito. **STAR eléctrico (FB) NO se fusiona** con `TRICICLOS HIBRIDOS STAR` (híbrido). Top eléctrico tras integrar: **TOPMAQ BRIDERK 2026 GELPB 0.736** (n=5), **ONEBOT CLASIC 2026 0.725** (n=5)
+- **Lección:** Facebook no aporta specs nuevas pero sí **conteos de anuncios** y nombres; fusionar por nombre exige tabla de alias explícita y verificar que no se mezclen variantes de **propulsión distinta**. Al ampliar el grupo, los scores relativos pueden moverse (misma sensibilidad min-max intra-grupo que con islagrande)
+- **Próxima vez:** Cualquier fuente nueva fusionada por nombre → alias explícito + comprobar propulsión antes de unir
+- **Etiquetas:** facebook, fuente-nueva, clean-data, parse-fb, alias, fusion-modelos, min-max-grupo, analisis
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-14 (misma sesión) — construir el entregable
+- **Tarea:** Crear el reporte interactivo (Streamlit + Matplotlib) que lea en vivo de `Data/clean_data/`, con storytelling-de-datos, cubriendo las 3 fuentes (anuncios, empresas, trabajo de campo)
+- **Acción(es):**
+  1. Decidido: **app Streamlit** (no markdown aparte) con gráficos **Matplotlib estáticos**; estructura `reporte/` con `app.py`, `data.py` (capa de datos con `st.cache_data`), `theme.py` (paleta por propulsión + helpers), `.streamlit/config.toml`, `requirements.txt`
+  2. Creadas **10 páginas** en `reporte/pages/`: Resumen, Método, Mercado, Ranking, Precio/Autonomía/Carga (burbuja + frontera Pareto), Contendientes (top + radar), Mejor Opción (4 escenarios), Trabajo de Campo (protocolo + placeholders), Empresas (21 fichas), Limitaciones
+  3. Regla respetada: los gráficos **no limpian** datos; toda la limpieza vive en `codes/` y se materializa en `clean_data/`
+  4. `.gitignore` creado (`.venv/`, `__pycache__/`, `*.pyc`, etc.); `git rm -r --cached codes/__pycache__`
+- **Resultado:** Reporte completo en `reporte/`; sección de trabajo de campo visible como "pendiente" con los 11 campos del registro intactos
+- **Error/éxito:** Éxito en creación, **pero sin probar en un servidor real**; el arranque del servidor reveló fallos de importación (ver entrada 2026-10-15)
+- **Lección:** Crear la app sin arrancarla deja bugs latentes; conviene un smoke-test del servidor antes de darla por terminada
+- **Próxima vez:** Tras crear páginas Streamlit, arrancar el servidor y navegar cada página antes de cerrar la tarea
+- **Etiquetas:** reporte, streamlit, matplotlib, storytelling, paginas, theme, data-layer, gitignore
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-15 — sesión en opencode; el usuario reporta "en el reporte solamente aparece el campo de app, los demás están vacíos"
+- **Tarea:** Diagnosticar y corregir las páginas vacías del reporte
+- **Acción(es):**
+  1. Reproducido con `AppTest` (todas las vistas): 3 errores → `fig_ax()` no aceptaba `subplot_kw` (radar/polar en páginas 4, 5 y 6) y faltaban imports en la página 3 (`MUTED`, `GRID_COLOR`, `TEXT_COLOR`) y la 6 (`GRID_COLOR`)
+  2. **Causa raíz del "vacío":** las páginas importan `from reporte.data import ...`, pero Streamlit añade a `sys.path` **solo la carpeta del script principal** (`reporte/`, o `""` si se lanza `cd reporte && streamlit run app.py`), **no la raíz del repo** → `ModuleNotFoundError: No module named 'reporte'` → cada página renderiza en blanco. Reproducido simulando el `sys.path` real
+  3. Arreglo: bloque de bootstrap al inicio de cada página que inserta la raíz del repo en `sys.path` (sirve en ambos modos de lanzamiento); `fig_ax(**kwargs)`; imports añadidos
+  4. Renombrado `5_P_A_C.py` → `5_Precio_Carga.py` (la barra lateral mostraba "P_A_C")
+  5. Entorno: `python3 -m venv reporte/.venv` (Python 3.14); Arch/Archcraft es *externally-managed* (PEP 668) → `pip` solo dentro del venv; instalados **streamlit 1.66.0**, matplotlib 3.11.2, pandas, numpy
+- **Resultado:** Verificado en 3 niveles: (a) `AppTest` de las 11 vistas → 0 excepciones; (b) simulación del `sys.path` real en ambos modos → OK; (c) **servidor real por WebSocket** → la navegación lista 11 entradas y las 10 páginas ejecutan sin excepción. Servidor en `http://localhost:8501` (detenido al cerrar)
+- **Error/éxito:** Éxito. El commit `a9fd9ee "created reporte"` (2026-10-15 10:19) ya incluye el bootstrap y el renombre
+- **Lección:** En apps Streamlit multipágina, importar por paquete (`from reporte.x import`) **rompe** salvo que se garantice la raíz del repo en `sys.path`: Streamlit solo añade la carpeta del script principal. La prueba con `python -c` **no vale** (ese sí añade el CWD); hay que probar con el **servidor real** o simular su `sys.path`
+- **Próxima vez:** Al crear páginas Streamlit en subcarpetas, añadir el bootstrap de `sys.path` desde el inicio y verificar con el servidor real, no solo importando el módulo
+- **Etiquetas:** streamlit, multipagina, sys-path, import-error, pagina-en-blanco, fig-ax, radar, venv, pep668, archcraft, bug-fix
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-15 (misma sesión) — aclaración de ubicación del código
+- **Tarea:** Resolver dónde vive el código del reporte
+- **Acción(es):** El usuario preguntó "¿escribiste el código de la página en codes?"; verificado el árbol: `codes/` solo contiene el pipeline (`scrape_triciclos.py`, `parse_fb.py`, `scrape_empresas.py`, `analisis.py`); el reporte vive en `reporte/` (`app.py`, `data.py`, `theme.py`, `pages/`). El usuario decidió **dejarlo en `reporte/`**
+- **Resultado:** Convención fijada: pipeline de datos en `codes/`, app de visualización en `reporte/`, datos limpios en `Data/clean_data/`
+- **Error/éxito:** Éxito
+- **Lección:** Mantener separado el pipeline (produce datos) de la app (los consume) evita mezclas y aclara responsabilidades
+- **Próxima vez:** No mover `reporte/` dentro de `codes/`; respetar la separación acordada
+- **Etiquetas:** convenciones, estructura, reporte, codes, decision
+
+---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-15 (misma sesión) — el usuario pide cerrar sesión y actualizar journaling + handoff
+- **Tarea:** Cierre de sesión: actualizar `opencode/HANDOFF.md` y el diario
+- **Acción(es):**
+  1. Detenido el servidor Streamlit (puerto 8501)
+  2. Verificado el working tree: `HEAD = a9fd9ee "created reporte"`; **solo `.gitignore` sin commitear** (`??`)
+  3. Reescrito `opencode/HANDOFF.md` (cierre 2026-10-15, sesión 5) con las 5 secciones del prompt
+  4. Añadidas las entradas de esta sesión al diario
+- **Resultado:** Handoff y diario al día; servidor detenido; único pendiente de git: `.gitignore`
+- **Error/éxito:** Éxito
+- **Lección:** El commit `created reporte` ya lo había hecho el usuario; antes de redactar el handoff conviene mirar `git log`/`git status` para no declarar como "sin commitear" algo que ya está en el historial
+- **Próxima vez:** Primero `git log -3` + `git status --porcelain`, luego redactar el estado real
+- **Etiquetas:** cierre-de-sesion, handoff, journaling, git-status, decision
+
+---
