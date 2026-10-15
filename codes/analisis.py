@@ -50,10 +50,12 @@ PESOS = {
 # Las publicaciones con fecha anterior a esta se consideran históricas.
 VENTANA_VIGENCIA = "2026-01-01"
 
-# Convención de carpetas (ajustada 2026-10-11):
-#   codes/ -> scripts, Data/ -> datos procesados/campo, Data/raw_data/ -> crudos
+# Convención de carpetas (ajustada 2026-10-14):
+#   codes/ -> scripts
+#   Data/raw_data/ -> crudos inmutables
+#   Data/clean_data/ -> limpios listos para análisis (entrada de analisis.py)
 DATA_DIR = Path(__file__).resolve().parent.parent / "Data"
-RAW_DIR = DATA_DIR / "raw_data"
+CLEAN_DIR = DATA_DIR / "clean_data"
 
 ONLINE_FIELDS = [
     "modelo", "marca", "propulsion", "motor_w", "motor_cc",
@@ -97,6 +99,49 @@ def load_online(jsonl_path: str) -> pd.DataFrame:
         .str.replace(r"\s+", " ", regex=True)
         .str.strip()
     )
+
+    # Alias de modelos para fusión entre fuentes (scraper + facebook + empresas)
+    # Clave: modelo_norm crudo → Valor: modelo_norm canónico
+    MODELO_ALIAS = {
+        # Facebook "BRIDERK" + scraper "TRICICLOS TOPMAQ BRIDERK 2026 GELPB"
+        "BRIDERK": "TRICICLOS TOPMAQ BRIDERK 2026 GELPB",
+        "BRIDERK GELPB": "TRICICLOS TOPMAQ BRIDERK 2026 GELPB",
+        "BRIDERK LIFEPO4": "TRICICLOS TOPMAQ BRIDERK 2026 LIFEPO4",
+        # Facebook "MVP POWER" + scraper "TRICICLOS MVP POWER GELPB"
+        "MVP POWER": "TRICICLOS MVP POWER GELPB",
+        "MVP POWER GELPB": "TRICICLOS MVP POWER GELPB",
+        # Facebook "ONEBOT" + scraper "ONEBOT CLASIC 2026"
+        "ONEBOT": "ONEBOT CLASIC 2026",
+        "ONEBOT GELPB": "ONEBOT CLASIC 2026 GELPB",
+        # Facebook "KIVITOVA" + scraper "TRICICLOS KIVITOVA 2026 GELPB"
+        "KIVITOVA": "TRICICLOS KIVITOVA 2026 GELPB",
+        "KIVITOVA GELPB": "TRICICLOS KIVITOVA 2026 GELPB",
+        "KIVITOVA PREMIUM": "TRICICLOS KIVITOVA 2026 GELPB",  # misma línea
+        "KIVITOVA LIFEPO4": "TRICICLOS KIVITOVA 2026 LIFEPO4",
+        # Facebook "TOPMAQ" genérico → topmaq BRIDERK
+        "TOPMAQ": "TRICICLOS TOPMAQ BRIDERK 2026 GELPB",
+        "TOPMAQ GELPB": "TRICICLOS TOPMAQ BRIDERK 2026 GELPB",
+        # Facebook "STAR" (eléctrico) ≠ "TRICICLOS HIBRIDOS STAR" (híbrido) → NO fusionar
+        # Facebook "VIENTO RAPIDO" + scraper "ELECTRICO VIENTO RAPIDO"
+        "VIENTO RAPIDO": "ELECTRICO VIENTO RAPIDO",
+        "VIENTO RAPIDO GELPB": "ELECTRICO VIENTO RAPIDO GELPB",
+        # Facebook "MAF" + scraper "TRICICLOS ELECTRICOS MAF BATERIA LIFEPO4"
+        "MAF": "TRICICLOS ELECTRICOS MAF BATERIA LIFEPO4",
+        "MAF LIFEPO4": "TRICICLOS ELECTRICOS MAF BATERIA LIFEPO4",
+        # Facebook "JINPENG" + scraper "JINPENG GELPB"
+        "JINPENG": "JINPENG GELPB",
+        "JINPENG GELPB": "JINPENG GELPB",
+        # Facebook "OIM" + scraper "OIM DISPONIBLE GELPB" / "TRICICLOS OIM PASAJE GELPB"
+        "OIM DISPONIBLE": "OIM DISPONIBLE GELPB",
+        "OIM PASAJE": "TRICICLOS OIM PASAJE GELPB",
+        # VEDCA C400 LIFEPO4 (scraper) vs VEDCA C400 LIFEPO4 (facebook) - ya coinciden
+        # VEDCA C400 GELPB (scraper) vs VEDCA C400 GELPB (facebook) - ya coinciden
+    }
+
+    def apply_alias(x: str) -> str:
+        return MODELO_ALIAS.get(x, x)
+
+    df["modelo_norm"] = df["modelo_norm"].apply(apply_alias)
 
     # Propulsión: normalizar valores
     df["propulsion"] = df["propulsion"].fillna("indeterminado").str.lower()
@@ -256,11 +301,23 @@ def comparar_campo_online(df_campo: pd.DataFrame, df_online: pd.DataFrame) -> pd
 
 
 def main():
-    online_path = RAW_DIR / "anuncios_triciclos.jsonl"
+    # Cargar TODOS los JSONL de clean_data (anuncios + facebook + empresas)
+    online_files = [
+        CLEAN_DIR / "anuncios_triciclos.jsonl",
+        CLEAN_DIR / "anuncios_facebook.jsonl",
+    ]
     campo_path = DATA_DIR / "registro_ubicaciones.csv"
 
     print("=== CARGANDO DATOS ===")
-    df_online = load_online(str(online_path))
+    dfs = []
+    for p in online_files:
+        if p.exists():
+            df = load_online(str(p))
+            dfs.append(df)
+            print(f"  {p.name}: {len(df)} anuncios, {df['modelo_norm'].nunique()} modelos únicos")
+        else:
+            print(f"  {p.name}: NO ENCONTRADO")
+    df_online = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
     df_campo = load_campo(str(campo_path))
 
     print(f"Online: {len(df_online)} anuncios, {df_online['modelo_norm'].nunique()} modelos únicos")
@@ -284,16 +341,16 @@ def main():
                     "motor_w_med", "motor_cc_med"]
             print(sub[cols].to_string(index=False))
 
-        df_score.to_csv(DATA_DIR / "score_modelos.csv", index=False)
-        print("\n-> Guardado: score_modelos.csv")
+        df_score.to_csv(CLEAN_DIR / "score_modelos.csv", index=False)
+        print("\n-> Guardado: clean_data/score_modelos.csv")
 
     # 2. Comparación campo vs online
     print("\n=== COMPARACIÓN CAMPO vs ONLINE ===")
     df_comp = comparar_campo_online(df_campo, df_online)
     if not df_comp.empty:
         print(df_comp.head(20).to_string(index=False))
-        df_comp.to_csv(DATA_DIR / "comparacion_campo_online.csv", index=False)
-        print("\n-> Guardado: comparacion_campo_online.csv")
+        df_comp.to_csv(CLEAN_DIR / "comparacion_campo_online.csv", index=False)
+        print("\n-> Guardado: clean_data/comparacion_campo_online.csv")
 
     # 3. Resumen por municipio (campo)
     if not df_campo.empty:
@@ -301,8 +358,8 @@ def main():
         muni = df_campo.groupby(["municipio", "modelo_norm", "propulsion"]).size().reset_index(name="count")
         muni = muni.sort_values(["municipio", "count"], ascending=[True, False])
         print(muni.to_string(index=False))
-        muni.to_csv(DATA_DIR / "frecuencia_por_municipio.csv", index=False)
-        print("\n-> Guardado: frecuencia_por_municipio.csv")
+        muni.to_csv(CLEAN_DIR / "frecuencia_por_municipio.csv", index=False)
+        print("\n-> Guardado: clean_data/frecuencia_por_municipio.csv")
 
     # 4. Resumen por tipo/uso
     if not df_campo.empty:
@@ -310,8 +367,8 @@ def main():
         tipo_uso = df_campo.groupby(["tipo", "uso", "modelo_norm", "propulsion"]).size().reset_index(name="count")
         tipo_uso = tipo_uso.sort_values(["tipo", "uso", "count"], ascending=[True, True, False])
         print(tipo_uso.to_string(index=False))
-        tipo_uso.to_csv(DATA_DIR / "frecuencia_por_tipo_uso.csv", index=False)
-        print("\n-> Guardado: frecuencia_por_tipo_uso.csv")
+        tipo_uso.to_csv(CLEAN_DIR / "frecuencia_por_tipo_uso.csv", index=False)
+        print("\n-> Guardado: clean_data/frecuencia_por_tipo_uso.csv")
 
     # 5. Resumen online por propulsión
     if not df_online.empty:
