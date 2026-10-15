@@ -425,3 +425,26 @@ Fuente del protocolo: `Prompts/Journaling Prompt.md`.
 - **Etiquetas:** cierre-de-sesion, handoff, journaling, git-status, decision
 
 ---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-15 — sesión en opencode (sesión 6); reapertura tras el cierre de la sesión 5. El usuario pide leer los dos archivos de `opencode/` desde GitHub y, después, "documentación real que justifique esos parámetros" (los pesos del scoring)
+- **Tarea:** Aplicar el protocolo de apertura (leer handoff + diario) y aportar fuentes reales que justifiquen los pesos del scoring (precio 0.40, autonomía 0.25, carga 0.20, legalidad 0.10, repuestos 0.05)
+- **Acción(es):**
+  1. Leídos `opencode/HANDOFF.md` (sesión 5) y `opencode/Journaing_file.md` (427 líneas, 17 entradas) vía raw.githubusercontent — protocolo de apertura cumplido
+  2. Explicados los pesos: tabla de 5 criterios, mecánica (min-max intra-propulsión, ausentes → 0.5 + `n_criterios`, rangos → límite inferior, oferta viva) y cobertura declarada como limitación
+  3. Búsqueda literaria con verificación de enlaces: 13 URLs comprobadas por HTTP (11×200; IEEE, AP News y cubanet solo responden en navegador). Descarga de PDFs a `/tmp/opencode/docs` y extracción con `pdftotext` para confirmar cifras antes de citarlas (ISAHP 2022: *local priority* 0.40 de precio/combustible y 0.05 de *frequent repairs*; Hong et al. 2024: WTP por km de autonomía)
+  4. Justificación por criterio: precio → Niu et al. 2024 (IEEE Access, peso precio **0.417**) + ISAHP 2022; autonomía → Hidrue et al. 2011 + Hong et al. 2024; carga → Trung & Ersoy 2025 (tabla de 20 estudios MCDM); legalidad → Resolución 47/2026 MINTRAN + licencias temporales sin matrícula (3 fuentes cubanas); repuestos → apoyo indirecto ISAHP
+  5. Preguntado al usuario dónde materializarlo → elige **`Data/fuentes_justificacion.md`**
+  6. **Fricción:** el disco externo no estaba montado (tras un reinicio del servidor a mitad de la tarea). Preguntado en vez de escribir una copia en otro sitio; con el disco montado ("try again"), escrito el archivo: 5 secciones de criterio + tabla metodológica + nota de honestidad (los pesos exactos = juicio experto del proyecto, calibrado con literatura)
+  7. Verificado `git log -3` + `git status` antes del cierre: el usuario ya había commiteado `c2fa8a5 "created fuentes_justificacion.md"` y `4a9aeab "added gitignore"` (pendiente 2 de la sesión 5, resuelto)
+- **Resultado:** `Data/fuentes_justificacion.md` en el repo y commiteado por el usuario. Justificación documental lista para la página Método del reporte, con enlaces verificados y estados HTTP anotados
+- **Error/éxito:** Éxito. Fricción resuelta: disco externo no montado + reinicio del servidor a mitad de la tarea. Ninguna fuente citada sin verificar su contenido (los PDF con cifras se descargaron y leyeron antes de citar)
+- **Lección:** Verificar que el disco externo esté montado antes de intentar escribir en el repo; si no lo está, preguntar al usuario y no crear copias divergentes (misma lección de ubicación que el 2026-10-05). Y cuando pidan "documentación real que justifique X", distinguir honestamente entre lo que la literatura respalda (orden y magnitudes) y lo que es decisión normativa del proyecto (valores exactos): la credibilidad del informe depende de esa distinción
+- **Próxima vez:**
+  1. Pendientes ofertados y no ejecutados: (a) añadir la justificación a `reporte/pages/2_Metodo.py`; (b) análisis de sensibilidad de pesos ±25% en `analisis.py` (estándar, como Niu et al. 2024) para demostrar estabilidad de los podios
+  2. Re-verificar los enlaces de `fuentes_justificacion.md` antes de publicar/deployar (pueden caducar; IEEE/AP News bloquean bots)
+  3. Pendientes heredados siguen vivos: trabajo de campo, `use_container_width`, destino de `Data/empresas/`, `repuestos_proxy`, `precio_texto_usd`, `vedca.cu`
+- **Etiquetas:** justificacion-de-pesos, literatura, mcdm, fuentes-verificadas, disco-externo, fuentes_justificacion, protocolo-apertura, reinicio-servidor
+
+---
