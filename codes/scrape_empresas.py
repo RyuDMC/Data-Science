@@ -353,16 +353,31 @@ def scrape_acubaenvioscargo():
             continue
         titulo = _texto(h3)
 
-        # No hay página de detalle: se identifica el producto por su id de carrito.
+        # No hay página de detalle: se identifica el producto por su id de
+        # carrito. Si el producto está "Próximamente" (aún sin botón de
+        # compra) no hay id: se usa su PERMALINK, que sí lo identifica.
         mid = re.search(r"add-to-cart=(\d+)", str(blk)) or \
             re.search(r'data-product_id="(\d+)"', str(blk))
         pid = mid.group(1) if mid else None
-        url = f"{ACUBA_CAT}?add-to-cart={pid}" if pid else ACUBA_CAT
+        if pid:
+            url = f"{ACUBA_CAT}?add-to-cart={pid}"
+        else:
+            permalink = None
+            for a in blk.select("a[href]"):
+                href = a.get("href", "")
+                if "/tienda/" in href:
+                    permalink = href
+                    break
+            url = permalink or ACUBA_CAT
 
         rec = _record("acubaenvioscargo", url)
         rec["modelo"] = titulo.upper()
         rec["marca"] = st._marca_from_titulo(titulo)
         rec["propulsion"] = _propulsion_catalogo(titulo)
+        # La categoría es "Triciclos Eléctricos": si el título no dice el tipo
+        # (p.ej. "Triciclo Fly Racing 2027"), la categoría ES el dato.
+        if rec["propulsion"] == "indeterminado":
+            rec["propulsion"] = "electrico"
         rec["motor_w"] = _motor_w(titulo) if rec["propulsion"] == "electrico" else None
         rec["motor_cc"] = st.extract_cc(titulo)
         # En el título la capacidad viene como 'amp' (=Ah): 72v80amp -> 72 / 80.
@@ -371,7 +386,12 @@ def scrape_acubaenvioscargo():
         _precio(rec, _texto(blk.select_one(".woocommerce-Price-amount")))
 
         txt = _texto(blk)
-        if re.search(r"en stock", txt, re.I):
+        # "Próximamente" va ANTES que "en stock": un producto sin botón de
+        # compra aparece con las dos etiquetas y aún no está disponible.
+        if re.search(r"pr[oó]ximamente", txt, re.I):
+            rec["disponibilidad"] = "Próximamente"
+            rec["condicion"] = "nuevo"
+        elif re.search(r"en stock", txt, re.I):
             rec["disponibilidad"], rec["condicion"] = "En stock", "nuevo"
         elif re.search(r"agotado|out of stock", txt, re.I):
             rec["disponibilidad"], rec["condicion"] = "Agotado", "agotado"

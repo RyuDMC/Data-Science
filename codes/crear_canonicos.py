@@ -30,6 +30,13 @@ OUT_PATH = DATA_DIR / "modelos_canonicos.json"
 
 # ---- Separaciones de variante decididas por el usuario (2026-10-19) ----
 # "si no son exactamente iguales, déjalos separados y cuéntalos por separado"
+#
+# NOTA (2026-10-19, 2ª corrección del usuario): los tres "E-CARGO" de MZ
+# Products VUELVEN al mismo nombre ("E-CARGO MZ PRODUCTS") porque la
+# capacidad ya está en su propio campo (bateria_ah). Se conservan como
+# fichas separadas en las tablas, pero comparten identidad: si el dataset de
+# empresas entrara en el scoring, se agregarían. Queda anotado como riesgo
+# en el reporte (Limitaciones).
 VARIANTES = {
     # OIM: el "disponible" ($3.400, 1200 W) y el "de pasaje" ($3.500) son
     # productos distintos que comparten marca y nombre.
@@ -40,16 +47,19 @@ VARIANTES = {
         ("RALLY PASAJEROS", "RALLY"),
     "https://kikihabana.com/producto/triciclos-para-cuba/":
         ("RALLY CARGA", "RALLY"),
-    # MZ Products: tres "E-CARGO" distintos solo por batería (80/60/100 Ah).
-    "https://www.mzproducts.com/producto/triciclo-electrico-72v-80ah-mz-products-cargo/":
-        ("E-CARGO 80AH MZ PRODUCTS", "MZ PRODUCTS"),
-    "https://www.mzproducts.com/producto/triciclo-electrico-72v-60-ah-2500w-mz-products/":
-        ("E-CARGO 60AH MZ PRODUCTS", "MZ PRODUCTS"),
-    "https://www.mzproducts.com/producto/triciclo-electrico-100a-mz-products-cargo/":
-        ("E-CARGO 100AH MZ PRODUCTS", "MZ PRODUCTS"),
     # VEDCA C800B: el "fotovoltaico" es una variante con panel (precio propio).
     "https://islagrande.com/triciclo-electrico-carga-pasajeros-c800b-fotovoltaico-lifepo4-60v-90ah-habana.html":
         ("VEDCA C800B FOTOVOLTAICO", "VEDCA"),
+}
+
+# ---- Nombres fijados a mano (2026-10-19) ----
+# "Fly Racing 2027" de A Cuba Envíos Cargo: no tiene specs en el título ni
+# botón de compra (está "Próximamente"), así que se identifica por su
+# permalink. El usuario le puso la misma marca "RACING" que a los otros
+# dos Fly Racing.
+OVERRIDES = {
+    "https://www.acubaenvioscargo.com/tienda/transporte/triciclos-electricos/triciclo-fly-racing-2027/":
+        ("FLY RACING 2027", "RACING"),
 }
 
 # ---- Productos que el usuario decidió dejar fuera (2026-10-19) ----
@@ -64,7 +74,8 @@ EXCLUIDOS = {
 }
 
 # ---- Ficheros que el usuario NO curó: se conservan tal cual y se avisa ----
-SIN_CURAR = {"acubaenvioscargo.jsonl"}
+# (2026-10-19: acubaenvioscargo ya quedó curado por el usuario → vacío)
+SIN_CURAR = set()
 
 # ---- Pares (curado -> crudo) para poder desambiguar por el nombre original ----
 # El fichero crudo conserva el nombre tal como venía de la web; sirve para
@@ -143,6 +154,10 @@ def main():
             url = r.get("url")
             if not url or url in EXCLUIDOS:
                 continue
+            if url in OVERRIDES:
+                modelo, marca = OVERRIDES[url]
+                por_url[url] = {"modelo": modelo, "marca": marca, "origen": "manual"}
+                continue
             if url in VARIANTES:
                 modelo, marca = VARIANTES[url]
                 por_url[url] = {"modelo": modelo, "marca": marca, "origen": "variante"}
@@ -179,6 +194,12 @@ def main():
     # Facebook se indexa además por (marca, modelo) en la tabla de alias del
     # análisis. Aquí solo se registran las URLs canónicas de las fichas
     # scrapeadas (una URL = un producto).
+    # Los overrides manuales se añaden SIEMPRE, aunque el producto todavía no
+    # esté en clean_data (p.ej. un producto recién captado por el scraper):
+    # son decisiones del usuario sobre un producto concreto.
+    for url, (modelo, marca) in OVERRIDES.items():
+        por_url.setdefault(url, {"modelo": modelo, "marca": marca, "origen": "manual"})
+
     data = {
         "version": "2026-10-19",
         "nota": (
