@@ -59,6 +59,7 @@ Uso:
 
 import json
 import re
+import sys
 import time
 import unicodedata
 from datetime import datetime
@@ -72,6 +73,19 @@ from bs4 import BeautifulSoup
 #   codes/ -> scripts, Data/ -> datos procesados/campo, Data/raw_data/ -> crudos
 DATA_DIR = Path(__file__).resolve().parent.parent / "Data"
 RAW_DIR = DATA_DIR / "raw_data"
+
+# Normalización de nombres de modelo (decisión del usuario, 2026-10-19):
+# la identidad del producto sale de Data/modelos_canonicos.json (curada) y,
+# para lo que no esté en la tabla, de la regla de codes/norm_modelo.py.
+# Se aplica ANTES de escribir el JSONL, de modo que raw_data nace con los
+# nombres ya normalizados (no hay que editar el JSONL a mano después).
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from norm_modelo import (  # noqa: E402
+    canonizar_registro,
+    cargar_canonicos,
+    url_excluido,
+)
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -1102,18 +1116,42 @@ def main():
         seen.add(u)
         deduped.append(rec)
 
+    # Normalización de la identidad del producto (decisión del usuario,
+    # 2026-10-19): tabla curada + regla heurística. Los productos excluidos
+    # por el usuario no se escriben (pero quedan en la tabla, con su motivo).
+    canon = cargar_canonicos()
+    normalizados, excluidos, a_revisar = [], [], []
+    for rec in deduped:
+        motivo = url_excluido(rec.get("url"), canon)
+        if motivo:
+            excluidos.append((rec.get("url"), motivo))
+            continue
+        canonizar_registro(rec, canon)
+        estado = rec.pop("_estado_norm", "heuristico")
+        if estado == "revisar":
+            a_revisar.append((rec.get("modelo"), rec.get("marca"), rec.get("url")))
+        normalizados.append(rec)
+
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        for rec in deduped:
+        for rec in normalizados:
             out = {k: v for k, v in rec.items() if not k.startswith("_")}
             f.write(json.dumps(out, ensure_ascii=False) + "\n")
 
-    print(f"\n=== TOTAL: {len(deduped)} registros únicos en {OUTPUT_FILE} ===")
+    print(f"\n=== TOTAL: {len(normalizados)} registros únicos en {OUTPUT_FILE} ===")
+    if excluidos:
+        print(f"    ({len(excluidos)} excluidos por decisión del usuario)")
+        for u, m in excluidos:
+            print(f"      - {u}: {m}")
+    if a_revisar:
+        print(f"    ({len(a_revisar)} con nombre de modelo a REVISAR)")
+        for mo, ma, u in a_revisar:
+            print(f"      - {mo!r} / {ma!r} <- {u}")
     if len(all_records) != len(deduped):
         print(f"    ({len(all_records) - len(deduped)} duplicados por URL eliminados)")
 
     by_prop, by_src = {}, {}
-    for r in deduped:
+    for r in normalizados:
         by_prop[r.get("propulsion", "indeterminado")] = by_prop.get(r.get("propulsion"), 0) + 1
         by_src[r.get("fuente", "?")] = by_src.get(r.get("fuente", "?"), 0) + 1
     print("\nPor propulsión:")
@@ -1123,7 +1161,7 @@ def main():
     for s, c in sorted(by_src.items()):
         print(f"  {s}: {c}")
 
-    if not deduped:
+    if not normalizados:
         print("\nADVERTENCIA: 0 registros.")
 
 

@@ -1,0 +1,477 @@
+{
+  "excluidos": {
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclos-hibridos-el-mejor-precio-de": "Nombre 100% publicitario ('MEJOR PRECIO'), sin modelo identificable; excluido por decisión del usuario (2026-10-19)."
+  },
+  "nota": "Tabla curada de identidad de producto (clave: URL). La usan codes/norm_modelo.py y los scrapers, de modo que raw_data nace con los nombres ya normalizados. Editar aquí, no a mano en los JSONL: la siguiente pasada del scraper sobrescribe lo editado a mano.",
+  "por_url": {
+    "https://cubancargos.com/triciclos/electricos-cuba/porto-bello-panel-solar": {
+      "marca": "PORTO BELLO",
+      "modelo": "PORTO BELLO",
+      "origen": "curado"
+    },
+    "https://cubancargos.com/triciclos/electricos-cuba/triciclo-furikazan": {
+      "marca": "FURIKAZAN",
+      "modelo": "FURIKAZAN",
+      "origen": "curado"
+    },
+    "https://cubancargos.com/triciclos/electricos-cuba/triciclo-jeinpeing": {
+      "marca": "JINPEING",
+      "modelo": "JINPEING",
+      "origen": "curado"
+    },
+    "https://cubancargos.com/triciclos/electricos-cuba/triciclo-nippon-se": {
+      "marca": "NIPPON",
+      "modelo": "NIPPON SE",
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/onebot-el-clasic-2026": {
+      "marca": "ONEBOT",
+      "modelo": "ONEBOT CLASIC 2026",
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/onebot-el-tank-el-mas-grande-para-tu-negocio": {
+      "marca": "ONEBOT",
+      "modelo": "ONEBOT TANK",
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/onebot-jincheng-2026-el-capataz": {
+      "marca": "ONEBOT",
+      "modelo": "ONEBOT JINCHENG 2026 CAPATAZ",
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclo-electrico-vedca-c400": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C400",
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclo-electrico-viento-rapido-3f1lk": {
+      "marca": "VIENTO RAPIDO",
+      "modelo": "VIENTO RAPIDO",
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclo-hibrido-laitung": {
+      "marca": "LAITUNG",
+      "modelo": null,
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclo-jimpeng-hibrido-2026": {
+      "marca": "JINPEN",
+      "modelo": null,
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclo-jinpen-hibrido": {
+      "marca": "JINPEN",
+      "modelo": "JINPEN HIBRIDO",
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclo-marca-jinpeng": {
+      "marca": "JINPENG",
+      "modelo": "JINPENG",
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclo-marca-oim-disponible": {
+      "marca": "OIM",
+      "modelo": "OIM",
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclos-electricos-maf-bateria-lifepo4": {
+      "marca": "MAF",
+      "modelo": null,
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclos-hibridos-star-i": {
+      "marca": "STAR",
+      "modelo": null,
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclos-kivitova-2026": {
+      "marca": "KIVITOVA",
+      "modelo": null,
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclos-mvp-power": {
+      "marca": "MVP",
+      "modelo": "MVP POWER",
+      "origen": "curado"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclos-oim-de-pasaje": {
+      "marca": "OIM",
+      "modelo": "OIM PASAJE",
+      "origen": "variante"
+    },
+    "https://elyerromenu.com/b/cuba-sobre-ruedas/product/triciclos-topmaq-briderk-2026": {
+      "marca": "TOPMAQ",
+      "modelo": "TOPMAQ BRIDERK 2026",
+      "origen": "curado"
+    },
+    "https://habana.casalindashop.com/triciclo-combustion-de-carga-200cc-enfriamiento-por-aire-m-magic-bike-modelo-m004.html": {
+      "marca": "MAGIC BIKE",
+      "modelo": "MAGIC BIKE M004",
+      "origen": "curado"
+    },
+    "https://habana.casalindashop.com/triciclo-combustion-de-carga-250cc-enfriamiento-por-agua-m-magic-bike-modelo-m005.html": {
+      "marca": "MAGIC BIKE",
+      "modelo": "MAGIC BIKE M005",
+      "origen": "curado"
+    },
+    "https://habana.casalindashop.com/triciclo-electrico-de-carga-con-techo-72v-58ah-capacidad-850kg.html": {
+      "marca": "CHILWEE",
+      "modelo": null,
+      "origen": "curado"
+    },
+    "https://habana.casalindashop.com/triciclo-electrico-techado-con-dos-puertas-y-cajon-trasero-bateria-72-v.html": {
+      "marca": "MAGIC BIKE",
+      "modelo": null,
+      "origen": "curado"
+    },
+    "https://habana.casalindashop.com/triciclo-pick-up-electrico-cerrado-con-dos-puertas-y-maletero-sk-2101.html": {
+      "marca": "SK-2101",
+      "modelo": "SK-2101",
+      "origen": "curado"
+    },
+    "https://islagrande.com/triciclo-electrico-carga-c400-bateria-lifepo4-60v90ah-habana.html": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C400",
+      "origen": "curado"
+    },
+    "https://islagrande.com/triciclo-electrico-carga-c400-bateria-lifepo4mn-60v90ah-habana-3.html": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C400",
+      "origen": "curado"
+    },
+    "https://islagrande.com/triciclo-electrico-carga-c400a-bateria-gelpb-60v80ah-habana.html": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C400A",
+      "origen": "curado"
+    },
+    "https://islagrande.com/triciclo-electrico-carga-mini-c300-bateria-lifepo4-60v-30ah.html": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C300",
+      "origen": "curado"
+    },
+    "https://islagrande.com/triciclo-electrico-carga-pasajeros-c600-gelpb-60v-80ah-habana.html": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C600",
+      "origen": "curado"
+    },
+    "https://islagrande.com/triciclo-electrico-carga-pasajeros-c600-lifepo4-60v-90ah-habana.html": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C600",
+      "origen": "curado"
+    },
+    "https://islagrande.com/triciclo-electrico-carga-pasajeros-c800b-fotovoltaico-lifepo4-60v-90ah-habana.html": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C800B FOTOVOLTAICO",
+      "origen": "variante"
+    },
+    "https://islagrande.com/triciclo-electrico-carga-pasajeros-c800b-lifepo4-60v-90ah-habana.html": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C800B",
+      "origen": "curado"
+    },
+    "https://islagrande.com/triciclo-electrico-paseo-sh001-lifepo4-60v-105ah.html": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA SH001",
+      "origen": "curado"
+    },
+    "https://kikihabana.com/producto/carrito-electrico-para-cuba-2/": {
+      "marca": "ONEBOT",
+      "modelo": "ONEBOT T414",
+      "origen": "curado"
+    },
+    "https://kikihabana.com/producto/mighong-panel-solar/": {
+      "marca": "MIGHONG",
+      "modelo": "MIGHONG",
+      "origen": "curado"
+    },
+    "https://kikihabana.com/producto/triciclo-electrico-para-cuba-2/": {
+      "marca": "IZUKI",
+      "modelo": "IZUKI",
+      "origen": "curado"
+    },
+    "https://kikihabana.com/producto/triciclo-electrico-para-cuba-3/": {
+      "marca": "MOSHOZUKI",
+      "modelo": "MOSHOZUKI ULTRA",
+      "origen": "curado"
+    },
+    "https://kikihabana.com/producto/triciclo-panel-solar-para-cuba-2/": {
+      "marca": "BD",
+      "modelo": "BD TAXI",
+      "origen": "curado"
+    },
+    "https://kikihabana.com/producto/triciclo-panel-solar-para-cuba/": {
+      "marca": "CYT",
+      "modelo": null,
+      "origen": "curado"
+    },
+    "https://kikihabana.com/producto/triciclos-electricos-para-cuba-2/": {
+      "marca": "RALLY",
+      "modelo": "RALLY PASAJEROS",
+      "origen": "variante"
+    },
+    "https://kikihabana.com/producto/triciclos-para-cuba/": {
+      "marca": "RALLY",
+      "modelo": "RALLY CARGA",
+      "origen": "variante"
+    },
+    "https://kikihabana.com/producto/trriciclos-electricos-para-cuba/": {
+      "marca": "HUAIHAI",
+      "modelo": "HUAIHAI",
+      "origen": "curado"
+    },
+    "https://mrcubamiami.com/": {
+      "opciones": [
+        {
+          "marca": "Hercules",
+          "match": "HÉRCULES SOLAR 72V 85AH",
+          "modelo": null,
+          "origen": "curado",
+          "propulsion": "electrico"
+        },
+        {
+          "marca": "Tiger",
+          "match": "TIGER HÍBRIDO",
+          "modelo": null,
+          "origen": "curado",
+          "propulsion": "hibrido"
+        }
+      ]
+    },
+    "https://t.me/s/MotosBateriasElectricasCuba/1640": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C400",
+      "origen": "curado"
+    },
+    "https://t.me/s/MotosBateriasElectricasCuba/1643": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C400",
+      "origen": "curado"
+    },
+    "https://t.me/s/MotosBateriasElectricasCuba/1647": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C400",
+      "origen": "curado"
+    },
+    "https://t.me/s/MotosBateriasElectricasCuba/1715": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C600",
+      "origen": "curado"
+    },
+    "https://t.me/s/MotosBateriasElectricasCuba/1722": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C400",
+      "origen": "curado"
+    },
+    "https://t.me/s/MotosBateriasElectricasCuba/1723": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C600",
+      "origen": "curado"
+    },
+    "https://t.me/s/MotosBateriasElectricasCuba/1736": {
+      "marca": "VEDCA",
+      "modelo": "VEDCA C400A",
+      "origen": "curado"
+    },
+    "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=14938": {
+      "marca": null,
+      "modelo": "TRICICLO MOTOR 1500 WATT BATERÍA 72V80AMP LITHIUM",
+      "origen": "curado"
+    },
+    "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=16463": {
+      "marca": null,
+      "modelo": "TRICICLO FLY RACING MOTOR 1500W BATERÍA 72V80AMP",
+      "origen": "curado"
+    },
+    "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=17270": {
+      "marca": null,
+      "modelo": "TRICICLO FLY RACING MOTOR 2000W BATERÍA 72V 160AMP",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/1137682268538035/permalink/1406393771666882/": {
+      "marca": "TOPMAQ",
+      "modelo": "BRIDERK",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/644647424572616/permalink/1155221893515164/": {
+      "marca": "KIVITOVA",
+      "modelo": "KIVITOVA",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/644647424572616/permalink/1155235173513836/": {
+      "marca": "MAF",
+      "modelo": "MAF",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/644647424572616/permalink/1155238560180164/": {
+      "marca": "JIMPEG",
+      "modelo": "JIMPEG PANTER 2026",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/644647424572616/permalink/1155252360178784/": {
+      "marca": "TRAKTION",
+      "modelo": "TRAKTION 2026",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/644647424572616/permalink/1155253306845356/": {
+      "marca": "STAR",
+      "modelo": "STAR",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/803710967828456/permalink/1654782112721333/": {
+      "marca": "ONEBOT",
+      "modelo": "ONEBOT",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/803710967828456/permalink/1654782839387927/": {
+      "marca": "KIVITOVA",
+      "modelo": "KIVITOVA PREMIUM",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/803710967828456/permalink/1654792126053665/": {
+      "marca": "TOPMAQ",
+      "modelo": "BRIDERK",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/803710967828456/permalink/1654867952712749/": {
+      "marca": "TOPMAQ",
+      "modelo": "BRIDERK",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/803710967828456/permalink/1654874736045404/": {
+      "marca": "TOPMAQ",
+      "modelo": "BRIDERK",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/803710967828456/permalink/1654893149376896/": {
+      "marca": "STAR",
+      "modelo": "STAR",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/groups/803710967828456/permalink/1654893589376852/": {
+      "marca": "TOPMAQ",
+      "modelo": "TOPMAQ",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/1QmQ1as4iF/": {
+      "marca": "JINGHAN",
+      "modelo": "KN-KO13",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/19MCfK7eDr/": {
+      "marca": "TOPMAQ",
+      "modelo": "TOPMAQ",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/19jCXgh9Yy/": {
+      "marca": "STAR",
+      "modelo": "STAR",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/19jryHoMRt/": {
+      "marca": "KIVITOVA",
+      "modelo": "DDS-OD",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/19rdffanLu/": {
+      "marca": "JIMPENG",
+      "modelo": "TY150UK",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/1Bjixj7nec/": {
+      "marca": "PANTHER",
+      "modelo": "PANTHER",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/1BwTRnjebJ/": {
+      "marca": "ONEBOT",
+      "modelo": "ONEBOT",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/1CARDjcixZ/": {
+      "marca": "TOPMAQ",
+      "modelo": "BRIDERK",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/1DsWPUvzCa/": {
+      "marca": "VIENTO RAPIDO",
+      "modelo": "VIENTO RAPIDO",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/1E3J9MDYTU/": {
+      "marca": "TOPMAQ",
+      "modelo": "BRIDERK",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/1Ep5yuKNkQ/": {
+      "marca": "STAR",
+      "modelo": "STAR",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/1FKg7At7mu/": {
+      "marca": "KIVITOVA",
+      "modelo": "DDS-OD",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/1HFcvNhJu9/": {
+      "marca": "MVP",
+      "modelo": "MVP POWER",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/1HyYqtLxKB/": {
+      "marca": "MISHOZUKI",
+      "modelo": "MISHOZUKI 2026",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/1MXGhRmUXB/": {
+      "marca": "TRAKTION",
+      "modelo": "TRAKTION 2026",
+      "origen": "curado"
+    },
+    "https://www.facebook.com/share/p/1QeToSpZYh/": {
+      "marca": "KIVITOVA",
+      "modelo": "KIVITOVA",
+      "origen": "curado"
+    },
+    "https://www.mzproducts.com/producto/triciclo-de-combustion-carga-250cc-mz-products/": {
+      "marca": "MZ PRODUCTS",
+      "modelo": null,
+      "origen": "curado"
+    },
+    "https://www.mzproducts.com/producto/triciclo-electrico-100a-mz-products-cargo/": {
+      "marca": "MZ PRODUCTS",
+      "modelo": "E-CARGO 100AH MZ PRODUCTS",
+      "origen": "variante"
+    },
+    "https://www.mzproducts.com/producto/triciclo-electrico-72v-100ah-e-cargo-ultra-mz-products/": {
+      "marca": "MZ PRODUCTS",
+      "modelo": "E-CARGO POWER MZ PRODUCTS",
+      "origen": "curado"
+    },
+    "https://www.mzproducts.com/producto/triciclo-electrico-72v-60-ah-2500w-mz-products/": {
+      "marca": "MZ PRODUCTS",
+      "modelo": "E-CARGO 60AH MZ PRODUCTS",
+      "origen": "variante"
+    },
+    "https://www.mzproducts.com/producto/triciclo-electrico-72v-80ah-e-cargo-ultra-mz-products/": {
+      "marca": "MZ PRODUCTS",
+      "modelo": "E-CARGO ULTRA MZ PRODUCTS",
+      "origen": "curado"
+    },
+    "https://www.mzproducts.com/producto/triciclo-electrico-72v-80ah-mz-products-cargo/": {
+      "marca": "MZ PRODUCTS",
+      "modelo": "E-CARGO 80AH MZ PRODUCTS",
+      "origen": "variante"
+    },
+    "https://www.mzproducts.com/producto/triciclo-electrico-combustion-200cc-mz-products-c-runer/": {
+      "marca": "MZ PRODUCTS",
+      "modelo": null,
+      "origen": "curado"
+    }
+  },
+  "sin_curar": {
+    "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=14938": "acubaenvioscargo.jsonl",
+    "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=16463": "acubaenvioscargo.jsonl",
+    "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=17270": "acubaenvioscargo.jsonl"
+  },
+  "version": "2026-10-19"
+}

@@ -15,7 +15,13 @@ Reglas de limpieza:
 
 import re
 import json
+import sys
 from pathlib import Path
+
+# Normalización de la identidad del producto (decisión del usuario, 2026-10-19).
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from norm_modelo import canonizar_registro, cargar_canonicos  # noqa: E402
 
 RAW_PATH = Path("Data/raw_data/data_from_FB")
 OUT_PATH = Path("Data/clean_data/anuncios_facebook.jsonl")
@@ -132,6 +138,7 @@ def main():
     print(f"Registros brutos: {len(raw_lines)}")
 
     escritos = 0
+    canon = cargar_canonicos()
     with OUT_PATH.open("w", encoding="utf-8") as out:
         for i, block in enumerate(raw_lines, 1):
             d = parse_line(block)
@@ -177,6 +184,12 @@ def main():
                 "oferta_viva": True,
                 "n_anuncios": 1,
             }
+
+            # Normalización de la identidad del producto (decisión del usuario,
+            # 2026-10-19): la tabla curada (Data/modelos_canonicos.json) manda;
+            # lo que no esté en ella se resuelve con la regla heurística.
+            canonizar_registro(rec, canon)
+            rec.pop("_estado_norm", None)
 
             out.write(json.dumps(rec, ensure_ascii=False) + "\n")
             escritos += 1

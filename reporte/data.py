@@ -3,12 +3,23 @@ Capa de datos para el reporte Streamlit.
 Carga y normaliza datasets desde Data/clean_data/ con st.cache_data.
 """
 
-import pandas as pd
+import sys
 from pathlib import Path
+
+import pandas as pd
 import streamlit as st
 
+# La identidad del producto (regla del 2026-10-19) vive en codes/norm_modelo.py
+# y es la MISMA que usa codes/analisis.py: si no hay nombre de modelo, la
+# identidad es la marca. Aquí se importa por paquete, así que hace falta la
+# raíz del repo en sys.path (Streamlit solo añade la carpeta del script).
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from codes.norm_modelo import identidad  # noqa: E402
 
-CLEAN_DIR = Path(__file__).resolve().parent.parent / "Data" / "clean_data"
+
+CLEAN_DIR = REPO_ROOT / "Data" / "clean_data"
 
 
 @st.cache_data(show_spinner="Cargando anuncios online…")
@@ -30,8 +41,7 @@ def load_anuncios() -> pd.DataFrame:
     # Normalizaciones comunes
     if "propulsion" in df.columns:
         df["propulsion"] = df["propulsion"].fillna("indeterminado").str.lower()
-    if "modelo_norm" not in df.columns and "modelo" in df.columns:
-        df["modelo_norm"] = df["modelo"].astype(str).str.upper().str.strip()
+    df["modelo_norm"] = identidad(df)
     if "precio_usd" in df.columns:
         df["precio_usd"] = pd.to_numeric(df["precio_usd"], errors="coerce")
     if "autonomia_km" in df.columns:
@@ -68,8 +78,12 @@ def load_empresas() -> pd.DataFrame:
     # Normalizaciones
     if "propulsion" in df.columns:
         df["propulsion"] = df["propulsion"].fillna("indeterminado").str.lower()
-    if "modelo_norm" not in df.columns and "modelo" in df.columns:
-        df["modelo_norm"] = df["modelo"].astype(str).str.upper().str.strip()
+    df["modelo_norm"] = identidad(df)
+    # Nombre visible: si el producto no tiene nombre de modelo, se muestra
+    # la marca (no un hueco en blanco en la tabla).
+    if "modelo" in df.columns and "marca" in df.columns:
+        df["nombre_producto"] = df["modelo"].where(
+            df["modelo"].notna(), df["marca"].fillna("SIN MODELO"))
     for col in ["precio_usd", "autonomia_km", "carga_kg", "motor_w", "motor_cc"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -85,8 +99,7 @@ def load_campo() -> pd.DataFrame:
         return pd.DataFrame(columns=["fecha", "municipio", "tipo", "uso", "propulsion",
                                       "modelo", "marca", "motor", "estado", "observador", "notas"])
     df = pd.read_csv(path)
-    if "modelo_norm" not in df.columns and "modelo" in df.columns:
-        df["modelo_norm"] = df["modelo"].astype(str).str.upper().str.strip()
+    df["modelo_norm"] = identidad(df, con_alias=False)
     if "propulsion" in df.columns:
         df["propulsion"] = df["propulsion"].fillna("indeterminado").str.lower()
     return df

@@ -26,7 +26,7 @@ with st.sidebar:
     st.markdown("- Catálogos de empresas (4 empresas)")
     st.markdown("- Trabajo de campo (15 municipios)")
     st.markdown("---")
-    st.caption("Corte de datos: 2026-10-12")
+    st.caption("Corte de datos: 2026-10-19")
     st.caption("Stack: Streamlit + Matplotlib + Pandas")
 
 # La navegación multipágina de Streamlit usa la carpeta pages/ automáticamente
@@ -40,7 +40,7 @@ integrando **tres fuentes de evidencia**:
 
 | Fuente | Qué mide | Registros | Modelos únicos |
 |--------|----------|-----------|----------------|
-| **Anuncios online** | Oferta y competencia de precios | 71 | 43 |
+| **Anuncios online** | Oferta y competencia de precios | 70 | 42 |
 | **Catálogos de empresas** | Oferta formal y disponibilidad | 21 | 21 |
 | **Trabajo de campo** | Circulación real (inventario municipal) | 0* | 0* |
 

@@ -54,7 +54,7 @@ if "fuente_empresa" in df_empresas.columns:
             c3.metric("Carga med.", f"{sub['carga_kg'].median():.0f} kg" if sub['carga_kg'].notna().any() else "—")
             
             # Tabla
-            cols = ["modelo", "marca", "propulsion", "precio_usd", "autonomia_km", "carga_kg", 
+            cols = ["nombre_producto", "marca", "propulsion", "precio_usd", "autonomia_km", "carga_kg",
                     "motor_w", "motor_cc", "bateria_v", "bateria_ah", "bateria_quimica",
                     "disponibilidad", "condicion", "legalizacion", "url"]
             avail = [c for c in cols if c in sub.columns]

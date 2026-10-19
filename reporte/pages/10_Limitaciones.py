@@ -44,13 +44,13 @@ limitaciones = pd.DataFrame({
     ],
     "Qué significa": [
         "Anuncios y catálogos miden **oferta declarada**, no triciclos rodando. Un modelo muy anunciado puede no ser el más común en calle.",
-        "43 modelos únicos de 71 anuncios online + 21 fichas empresas. Muchos modelos con n=1. Scores con n_criterios < 5 son poco fiables.",
+        "42 modelos en el ranking (41 nombres distintos: el STAR aparece en dos propulsiones) de 70 anuncios online + 21 fichas empresas. Muchos modelos con n=1. Scores con n_criterios < 5 son poco fiables.",
         "Fuentes: clasificados (Revolico), tiendas WooCommerce, Telegram, Facebook. No cubren mercado informal completo ni todas las MIPYMEs.",
         "El único dato de **circulación real** (inventario 15 municipios) está **pendiente** (0 observaciones). Sin él, no podemos validar 'el más común'.",
         "Catálogo oficial VEDCA no disponible desde 2024. Cobertura vía Telegram/islagrande es parcial y con precios EUR históricos.",
         "Un modelo extremo (muy barato/muy caro) mueve la escala de **todo el grupo**. Al añadir Facebook, el ranking eléctrico cambió.",
         "Ausentes → 0.5 neutro + n_criterios. No castiga, pero oculta que el score se basa en menos evidencia. Ver columna n_criterios.",
-        "Solo 1/35 modelos tiene repuestos_proxy=1. Criterio (peso 5%) casi siempre neutro. No refleja disponibilidad real de repuestos."
+        "9/42 modelos tienen repuestos_proxy=1 (los que se anuncian en más de una fuente). Es un proxy, no disponibilidad real de repuestos: mide presencia en el mercado, no stock de piezas."
     ],
     "Impacto": ["ALTO", "ALTO", "MEDIO", "CRÍTICO", "MEDIO", "MEDIO", "BAJO", "BAJO"]
 })
@@ -68,23 +68,27 @@ st.header("2️⃣ Pendientes técnicos (datos)")
 pendientes = pd.DataFrame({
     "Item": [
         "data_from_FB integrado (parcial)",
-        "repuestos_proxy: solo 1/35 modelos",
+        "repuestos_proxy: proxy de '>1 fuente' (9/42 modelos)",
         "precio_texto_usd: 3 anuncios contradictorios",
         "VEDCA C400: 3 frentes de conflicto",
         "MAGIKBIKE: rescatar o descartar",
         "Mr Cuba (Wix): frágil, solo 2 fichas",
         "Batería Wh: elyerromenu no lee '72v/58ah' (barra)",
+        "Nombres de modelo: curar acubaenvioscargo (3 fichas)",
+        "Marca 'MAGIC BIKE' en un triciclo eléctrico: sin respaldo en la ficha",
     ],
     "Estado": [
         "✅ Integrado como 6ª fuente (parse_fb.py) — ranking recalculado",
-        "⏳ Decidir: ¿mejorar proxy? ¿quitar criterio? ¿buscar datos reales?",
+        "✅ Calculado sobre el dataset completo (antes se hacía por archivo y salía 1/35)",
         "⏳ 3 anuncios con precio en texto ≠ precio campo. ¿Cuál prevalece?",
         "⏳ Specs/precio/antigüedad: C400 LIFEPO4 (elyerromenu) vs C400 GELPB (islagrande) vs C400A (telegram)",
         "⏳ KikiHabana lo excluyó como 'carrito 4 ruedas'. ¿Es triciclo? ¿Rescatar?",
         "⏳ Wix bloquea scraping. Solo modelo+precio. ¿Mantener o descartar?",
         "⏳ Kivitova queda sin V/Ah. Mejora menor detectada en diario.",
+        "⏳ Sus títulos siguen con el nombre crudo ('TRICICLO FLY RACING MOTOR 1500W...')",
+        "⏳ Declarada en la ficha, pero la ficha solo menciona 1800 W y 72 V. ¿Confirmar?",
     ],
-    "Prioridad": ["ALTA", "MEDIA", "MEDIA", "ALTA", "BAJA", "BAJA", "BAJA"]
+    "Prioridad": ["ALTA", "BAJA", "MEDIA", "ALTA", "BAJA", "BAJA", "BAJA", "MEDIA", "MEDIA"]
 })
 
 st.dataframe(pendientes, use_container_width=True, hide_index=True)
@@ -101,8 +105,8 @@ df_scores = load_scores()
 if not df_online.empty:
     st.subheader("Completitud de campos (anuncios online)")
     
-    fields = ["modelo", "marca", "propulsion", "precio_usd", "autonomia_km", "carga_kg", 
-              "motor_w", "motor_cc", "bateria_v", "bateria_ah", "bateria_quimica", 
+    fields = ["modelo", "marca", "modelo_norm", "propulsion", "precio_usd", "autonomia_km", "carga_kg",
+              "motor_w", "motor_cc", "bateria_v", "bateria_ah", "bateria_quimica",
               "legalizacion", "condicion", "municipio_anuncio"]
     
     completitud = []
@@ -125,7 +129,7 @@ st.markdown("""
 | **Trabajo de campo (15 municipios)** | Respuesta real a "¿cuál es el más común?". Validación campo vs online. |
 | **Más anuncios por modelo** (n ≥ 5) | Scores más estables, n_criterios → 5 para más modelos. |
 | **Precios reales de transacción** (no solo listados) | Precio mediano más representativo, menos sesgo vendedor. |
-| **Datos de repuestos reales** (talleres, importadores) | Criterio repuestos significativo (hoy ~0). |
+| **Datos de repuestos reales** (talleres, importadores) | Criterio repuestos significativo (hoy solo 9/42 modelos tienen >1 fuente). |
 | **VEDCA.cu operativo** | Catálogo oficial completo, specs de fabricante, precios vigentes CUP/USD. |
 | **Todas las MIPYMEs** (MVP, Kvitova, etc.) | Cobertura real de oferta formal en Cuba. |
 | **Histórico de precios 12+ meses** | Tendencias, estacionalidad, inflación real USD/CUP. |
@@ -166,10 +170,11 @@ st.header("6️⃣ Versionado de datos")
 st.markdown("""
 | Archivo | Fuente | Última actualización | Registros | Notas |
 |---------|--------|---------------------|-----------|-------|
-| `anuncios_triciclos.jsonl` | 5 scrapers | 2026-10-12 | 42 | vedca.cu caído |
-| `anuncios_facebook.jsonl` | parse_fb.py | 2026-10-14 | 29 | 1 excluido (Artemisa) |
-| `empresas_*.jsonl` (4) | scrape_empresas.py | 2026-10-12 | 21 | MZ 200cc = híbrido |
-| `score_modelos.csv` | analisis.py | 2026-10-14 | 43 modelos | Recalculado con FB |
+| `anuncios_triciclos.jsonl` | 5 scrapers | 2026-10-19 | 41 | vedca.cu caído; 1 excluido por el usuario |
+| `anuncios_facebook.jsonl` | parse_fb.py | 2026-10-19 | 29 | 1 excluido (Artemisa) |
+| `empresas_*.jsonl` (4) | scrape_empresas.py | 2026-10-19 | 21 | MZ 200cc = híbrido |
+| `modelos_canonicos.json` | **curado a mano** | 2026-10-19 | 90 productos | Fuente de verdad de la identidad |
+| `score_modelos.csv` | analisis.py | 2026-10-19 | 42 filas (41 nombres) | Recalculado tras la limpieza de nombres |
 | `registro_ubicaciones.csv` | **CAMPO** | **PENDIENTE** | 0 | 15 municipios, 8h |
 
 **Corte propuesto para reporte final:** 30 noviembre 2026

@@ -22,14 +22,31 @@ Variantes (decisión del usuario, 2026-10-11): dos triciclos con el mismo númer
 de modelo pero distinta química de batería (p.ej. VEDCA C400 LiFePO4 vs GelPb)
 son modelos distintos: el identificador de agrupación incluye la química.
 
+Identidad del producto (decisión del usuario, 2026-10-19):
+  - `modelo` es el NOMBRE PROPIO del producto, ya normalizado en el origen por
+    codes/norm_modelo.py (tabla curada Data/modelos_canonicos.json + regla).
+  - Si `modelo` es null (el producto no tiene nombre de modelo, solo marca),
+    la IDENTIDAD es la MARCA. Antes esto producía un grupo fantasma "NONE"
+    que además encabezaba el ranking.
+  - La identidad va SIEMPRE acompañada de la propulsión: dos productos que
+    comparten nombre pero no propulsión (p.ej. el STAR eléctrico de Facebook y
+    el STAR híbrido de elyerromenu) NUNCA se fusionan.
+  - La normalización min-max es intra-propulsión: no se comparan scores entre
+    propulsiones distintas.
+
 Uso:
-    python3 codes/analisis.py   # lee Data/raw_data/*.jsonl y Data/*.csv; escribe Data/*.csv
+    python3 codes/analisis.py   # lee Data/clean_data/*.jsonl; escribe en clean_data/
 """
 
 import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
+
+# Identidad del producto y tabla de alias (compartidas con el reporte).
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from norm_modelo import ALIAS_MODELOS, aplicar_alias, identidad  # noqa: E402
 
 
 # ==================== PESOS APROBATOS ====================
@@ -84,59 +101,21 @@ def load_online(jsonl_path: str) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = None
 
-    # Normalizar modelo. Variantes por química de batería (decisión del usuario
-    # 2026-10-11): un 'VEDCA C400' con LiFePO4 y otro con GelPb son productos
-    # distintos; se separan para no promediar specs de variantes diferentes.
-    modelo_base = df["modelo"].astype(str).str.upper().str.strip()
-    quimica = df["bateria_quimica"].fillna("").astype(str).str.upper().str.strip()
-    quimica = quimica.where(quimica.ne("") & quimica.ne("NAN"), "")
-    # Solo en eléctricos: en un híbrido la batería es el extensor de rango, no
-    # la tracción, y su química no define una variante del vehículo.
-    prop_low = df["propulsion"].fillna("indeterminado").astype(str).str.lower()
-    quimica = quimica.where(prop_low.eq("electrico"), "")
-    df["modelo_norm"] = (
-        (modelo_base + " " + quimica)
-        .str.replace(r"\s+", " ", regex=True)
-        .str.strip()
-    )
+    # Normalizar la identidad del producto (decisión del usuario, 2026-10-19).
+    # La regla vive en codes/norm_modelo.py (compartida con el reporte):
+    #   modelo -> si no hay, la marca; + química en eléctricos; + alias.
+    # Antes se usaba `modelo.astype(str)`, que convertía los null en "None" y
+    # creaba un grupo fantasma que además encabezaba el ranking.
+    df["modelo_norm"] = identidad(df)
+    sin_id = df["modelo_norm"].eq("SIN IDENTIFICAR")
+    if sin_id.any():
+        fuentes = sorted(df.loc[sin_id, "fuente"].dropna().unique())
+        print(f"  AVISO: {int(sin_id.sum())} registros sin modelo ni marca "
+              f"(fuentes: {fuentes}). Se identifican como 'SIN IDENTIFICAR'.")
 
     # Alias de modelos para fusión entre fuentes (scraper + facebook + empresas)
-    # Clave: modelo_norm crudo → Valor: modelo_norm canónico
-    MODELO_ALIAS = {
-        # Facebook "BRIDERK" + scraper "TRICICLOS TOPMAQ BRIDERK 2026 GELPB"
-        "BRIDERK": "TRICICLOS TOPMAQ BRIDERK 2026 GELPB",
-        "BRIDERK GELPB": "TRICICLOS TOPMAQ BRIDERK 2026 GELPB",
-        "BRIDERK LIFEPO4": "TRICICLOS TOPMAQ BRIDERK 2026 LIFEPO4",
-        # Facebook "MVP POWER" + scraper "TRICICLOS MVP POWER GELPB"
-        "MVP POWER": "TRICICLOS MVP POWER GELPB",
-        "MVP POWER GELPB": "TRICICLOS MVP POWER GELPB",
-        # Facebook "ONEBOT" + scraper "ONEBOT CLASIC 2026"
-        "ONEBOT": "ONEBOT CLASIC 2026",
-        "ONEBOT GELPB": "ONEBOT CLASIC 2026 GELPB",
-        # Facebook "KIVITOVA" + scraper "TRICICLOS KIVITOVA 2026 GELPB"
-        "KIVITOVA": "TRICICLOS KIVITOVA 2026 GELPB",
-        "KIVITOVA GELPB": "TRICICLOS KIVITOVA 2026 GELPB",
-        "KIVITOVA PREMIUM": "TRICICLOS KIVITOVA 2026 GELPB",  # misma línea
-        "KIVITOVA LIFEPO4": "TRICICLOS KIVITOVA 2026 LIFEPO4",
-        # Facebook "TOPMAQ" genérico → topmaq BRIDERK
-        "TOPMAQ": "TRICICLOS TOPMAQ BRIDERK 2026 GELPB",
-        "TOPMAQ GELPB": "TRICICLOS TOPMAQ BRIDERK 2026 GELPB",
-        # Facebook "STAR" (eléctrico) ≠ "TRICICLOS HIBRIDOS STAR" (híbrido) → NO fusionar
-        # Facebook "VIENTO RAPIDO" + scraper "ELECTRICO VIENTO RAPIDO"
-        "VIENTO RAPIDO": "ELECTRICO VIENTO RAPIDO",
-        "VIENTO RAPIDO GELPB": "ELECTRICO VIENTO RAPIDO GELPB",
-        # Facebook "MAF" + scraper "TRICICLOS ELECTRICOS MAF BATERIA LIFEPO4"
-        "MAF": "TRICICLOS ELECTRICOS MAF BATERIA LIFEPO4",
-        "MAF LIFEPO4": "TRICICLOS ELECTRICOS MAF BATERIA LIFEPO4",
-        # Facebook "JINPENG" + scraper "JINPENG GELPB"
-        "JINPENG": "JINPENG GELPB",
-        "JINPENG GELPB": "JINPENG GELPB",
-        # Facebook "OIM" + scraper "OIM DISPONIBLE GELPB" / "TRICICLOS OIM PASAJE GELPB"
-        "OIM DISPONIBLE": "OIM DISPONIBLE GELPB",
-        "OIM PASAJE": "TRICICLOS OIM PASAJE GELPB",
-        # VEDCA C400 LIFEPO4 (scraper) vs VEDCA C400 LIFEPO4 (facebook) - ya coinciden
-        # VEDCA C400 GELPB (scraper) vs VEDCA C400 GELPB (facebook) - ya coinciden
-    }
+    # La tabla vive en codes/norm_modelo.py (compartida con el reporte).
+    MODELO_ALIAS = ALIAS_MODELOS
 
     def apply_alias(x: str) -> str:
         return MODELO_ALIAS.get(x, x)
@@ -169,11 +148,28 @@ def load_online(jsonl_path: str) -> pd.DataFrame:
     # Legalidad binaria
     df["legalidad_bin"] = df["legalizacion"].notna().astype(int)
 
-    # Repuestos proxy: modelos en múltiples fuentes
-    fuente_por_modelo = df.groupby("modelo_norm")["fuente"].nunique()
-    df["repuestos_proxy"] = df["modelo_norm"].map(fuente_por_modelo > 1).astype(int)
+    # Repuestos proxy: se calcula DESPUÉS de unir todos los ficheros (en
+    # main), porque "aparece en más de una fuente" solo tiene sentido con
+    # el dataset completo: el scraper y Facebook son fuentes distintas.
 
     return df
+
+
+def calcular_repuestos_proxy(df_online: pd.DataFrame) -> pd.DataFrame:
+    """Marca los modelos que aparecen en más de una fuente (proxy de repuestos).
+
+    La identidad incluye la propulsión (decisión del usuario, 2026-10-19): el
+    STAR eléctrico y el STAR híbrido son productos distintos y no cuentan como
+    el mismo modelo.
+    """
+    if df_online.empty:
+        return df_online
+    fuente_por_modelo = df_online.groupby(["modelo_norm", "propulsion"])["fuente"].nunique()
+    df_online["repuestos_proxy"] = [
+        int(fuente_por_modelo.get((m, p), 0) > 1)
+        for m, p in zip(df_online["modelo_norm"], df_online["propulsion"])
+    ]
+    return df_online
 
 
 def load_campo(csv_path: str) -> pd.DataFrame:
@@ -182,7 +178,13 @@ def load_campo(csv_path: str) -> pd.DataFrame:
         return pd.DataFrame(columns=["fecha", "municipio", "tipo", "uso", "propulsion",
                                       "modelo", "marca", "motor", "estado", "observador", "notas"])
     df = pd.read_csv(csv_path)
-    df["modelo_norm"] = df["modelo"].astype(str).str.upper().str.strip()
+    # Misma regla de identidad que en los datos online (decisión del usuario,
+    # 2026-10-19): si no hay nombre de modelo, la identidad es la marca.
+    if "marca" in df.columns:
+        base = df["modelo"].where(df["modelo"].notna(), df["marca"])
+    else:
+        base = df["modelo"]
+    df["modelo_norm"] = base.fillna("").astype(str).str.upper().str.strip()
     # Normalizar propulsión en campo también
     if "propulsion" in df.columns:
         df["propulsion"] = df["propulsion"].fillna("indeterminado").str.lower()
@@ -197,8 +199,10 @@ def score_modelos(df_online: pd.DataFrame) -> pd.DataFrame:
     # Filtro de vigencia (decisión usuario 2026-10-11: "oferta viva manda").
     # Si el modelo tiene alguna oferta vigente, se descartan sus publicaciones
     # históricas; si solo tiene históricas, se conserva (oferta_viva=False).
+    # La comprobación es por (modelo, propulsión): un mismo nombre con otra
+    # propulsión es otro producto y no le afecta la vigencia de este.
     if "es_viva" in df_online.columns:
-        tiene_viva = df_online.groupby("modelo_norm")["es_viva"].transform("any")
+        tiene_viva = df_online.groupby(["modelo_norm", "propulsion"])["es_viva"].transform("any")
         base = df_online[df_online["es_viva"] | ~tiene_viva]
     else:
         base = df_online
@@ -210,7 +214,7 @@ def score_modelos(df_online: pd.DataFrame) -> pd.DataFrame:
         carga_kg=("carga_kg", "median"),
         legalidad_bin=("legalidad_bin", "max"),
         repuestos_proxy=("repuestos_proxy", "max"),
-        n_anuncios=("modelo", "count"),          # ofertas usadas (vigentes)
+        n_anuncios=("fuente", "size"),           # ofertas usadas (vigentes)
         motor_w_med=("motor_w", "median"),
         motor_cc_med=("motor_cc", "median"),
         marcas=("marca", lambda x: list(x.dropna().unique())),
@@ -219,11 +223,14 @@ def score_modelos(df_online: pd.DataFrame) -> pd.DataFrame:
         monedas=("moneda", lambda x: list(x.dropna().unique())),
     ).reset_index()
 
-    # Anotar total de anuncios (incl. históricos) y si hay oferta vigente
-    por_modelo = df_online.groupby("modelo_norm")
-    agg["n_anuncios_total"] = agg["modelo_norm"].map(por_modelo.size())
+    # Anotar total de anuncios (incl. históricos) y si hay oferta vigente.
+    # También por (modelo, propulsión), para no contar anuncios de otro
+    # producto que comparta el nombre.
+    por_modelo = df_online.groupby(["modelo_norm", "propulsion"])
+    claves = list(zip(agg["modelo_norm"], agg["propulsion"]))
+    agg["n_anuncios_total"] = [por_modelo.size().get(k, 0) for k in claves]
     if "es_viva" in df_online.columns:
-        agg["oferta_viva"] = agg["modelo_norm"].map(por_modelo["es_viva"].any())
+        agg["oferta_viva"] = [bool(por_modelo["es_viva"].any().get(k, False)) for k in claves]
     else:
         agg["oferta_viva"] = True
 
@@ -277,25 +284,25 @@ def score_modelos(df_online: pd.DataFrame) -> pd.DataFrame:
 
 
 def comparar_campo_online(df_campo: pd.DataFrame, df_online: pd.DataFrame) -> pd.DataFrame:
-    """Compara frecuencias: qué se ve en la calle vs qué se anuncia."""
+    """Compara frecuencias: qué se ve en la calle vs qué se anuncia.
+
+    La identidad incluye la propulsión (decisión del usuario, 2026-10-19): un
+    mismo nombre con propulsiones distintas son productos distintos.
+    """
     if df_campo.empty or df_online.empty:
         return pd.DataFrame()
 
-    campo_freq = df_campo["modelo_norm"].value_counts().reset_index()
-    campo_freq.columns = ["modelo_norm", "freq_campo"]
+    campo_freq = (df_campo.groupby(["modelo_norm", "propulsion"]).size()
+                  .reset_index(name="freq_campo"))
+    online_freq = (df_online.groupby(["modelo_norm", "propulsion"]).size()
+                   .reset_index(name="freq_online"))
 
-    online_freq = df_online["modelo_norm"].value_counts().reset_index()
-    online_freq.columns = ["modelo_norm", "freq_online"]
-
-    comp = pd.merge(campo_freq, online_freq, on="modelo_norm", how="outer").fillna(0)
+    comp = pd.merge(campo_freq, online_freq, on=["modelo_norm", "propulsion"],
+                    how="outer").fillna(0)
     comp["freq_campo"] = comp["freq_campo"].astype(int)
     comp["freq_online"] = comp["freq_online"].astype(int)
     comp["total"] = comp["freq_campo"] + comp["freq_online"]
     comp = comp.sort_values("total", ascending=False).reset_index(drop=True)
-
-    # Añadir propulsión dominante de cada modelo (del online)
-    prop_map = df_online.groupby("modelo_norm")["propulsion"].agg(lambda x: x.mode().iloc[0] if not x.mode().empty else "indeterminado")
-    comp["propulsion"] = comp["modelo_norm"].map(prop_map)
 
     return comp
 
@@ -318,6 +325,9 @@ def main():
         else:
             print(f"  {p.name}: NO ENCONTRADO")
     df_online = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+    # El proxy de repuestos necesita el dataset completo (scraper + Facebook).
+    if not df_online.empty:
+        df_online = calcular_repuestos_proxy(df_online)
     df_campo = load_campo(str(campo_path))
 
     print(f"Online: {len(df_online)} anuncios, {df_online['modelo_norm'].nunique()} modelos únicos")

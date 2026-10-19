@@ -137,9 +137,10 @@ if not df_empresas.empty:
 
     # Top modelos empresas
     st.markdown("**Modelos en catálogos:**")
-    cols = ["modelo", "marca", "propulsion", "precio_usd", "autonomia_km", "carga_kg", "fuente_empresa"]
+    cols = ["nombre_producto", "marca", "propulsion", "precio_usd", "autonomia_km", "carga_kg", "fuente_empresa"]
     avail = [c for c in cols if c in df_empresas.columns]
-    st.dataframe(df_empresas[avail].sort_values(["fuente_empresa", "modelo"]), use_container_width=True, hide_index=True)
+    st.dataframe(df_empresas[avail].sort_values(["fuente_empresa", "nombre_producto"]),
+                 use_container_width=True, hide_index=True)
 else:
     st.info("Sin datos de empresas")
 

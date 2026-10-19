@@ -42,8 +42,8 @@ fuentes = pd.DataFrame({
         "Oferta formal, disponibilidad, specs de fabricante",
         "Circulación real observada en calle"
     ],
-    "Registros": [71, 21, 0],
-    "Modelos únicos": [43, 21, 0],
+    "Registros": [70, 21, 0],
+    "Modelos únicos": [41, 21, 0],
     "Cobertura": [
         "6 fuentes: elyerromenu, islagrande, vedca_telegram, casalindashop, cubancargos, Facebook",
         "4 empresas: KikiHabana, MZ Products, A Cuba Envíos Cargo, Mr Cuba",
@@ -52,6 +52,12 @@ fuentes = pd.DataFrame({
     "Estado": ["✅ Activo", "✅ Activo", "⏳ Pendiente"]
 })
 st.dataframe(fuentes, use_container_width=True, hide_index=True)
+
+st.caption(
+    "El ranking tiene **42 filas** porque el mismo nombre puede aparecer en dos "
+    "propulsiones (el STAR eléctrico y el STAR híbrido son productos "
+    "distintos): 41 nombres distintos, 42 modelos en el scoring."
+)
 
 st.markdown("---")
 
@@ -82,6 +88,7 @@ reglas = pd.DataFrame({
     "Tema": [
         "Rangos de autonomía",
         "Datos ausentes",
+        "Identidad del producto",
         "Variantes por química",
         "C400 vs C400A",
         "Oferta viva",
@@ -92,6 +99,7 @@ reglas = pd.DataFrame({
     "Regla": [
         "Siempre límite inferior (ej. '90-100 km' → 90 km)",
         "Imputación neutra 0.5 + columna n_criterios",
+        "modelo = nombre propio; si no hay, la identidad es la MARCA; + propulsión",
         "Sólo en eléctricos: modelo_norm incluye química (LiFePO4 ≠ GelPb)",
         "Modelos distintos (no se fusionan)",
         "Sin fecha = vigente; con fecha → ≥ 2026-01-01; 'agotado' = no viva",
@@ -143,16 +151,49 @@ st.markdown("---")
 st.header("4️⃣ Alias de fusión (modelos entre fuentes)")
 
 alias_data = [
-    ("BRIDERK (FB)", "TRICICLOS TOPMAQ BRIDERK 2026 GELPB (scraper)"),
-    ("MVP POWER (FB)", "TRICICLOS MVP POWER GELPB (scraper)"),
+    ("BRIDERK (FB)", "TOPMAQ BRIDERK 2026 GELPB (scraper)"),
+    ("TOPMAQ genérico (FB)", "TOPMAQ BRIDERK 2026 GELPB (scraper)"),
+    ("MVP POWER (FB)", "MVP POWER GELPB (scraper)"),
     ("ONEBOT (FB)", "ONEBOT CLASIC 2026 (scraper)"),
-    ("KIVITOVA (FB)", "TRICICLOS KIVITOVA 2026 GELPB (scraper)"),
-    ("TOPMAQ genérico (FB)", "TRICICLOS TOPMAQ BRIDERK 2026 GELPB (scraper)"),
-    ("VIENTO RAPIDO (FB)", "ELECTRICO VIENTO RAPIDO (scraper)"),
-    ("MAF (FB)", "TRICICLOS ELECTRICOS MAF BATERIA LIFEPO4 (scraper)"),
-    ("JINPENG (FB)", "JINPENG GELPB (scraper)"),
+    ("KIVITOVA (FB)", "KIVITOVA GELPB (scraper)"),
+    ("KIVITOVA PREMIUM (FB)", "KIVITOVA GELPB (scraper)"),
+    ("MAF (FB)", "MAF LIFEPO4 (scraper)"),
+    ("VIENTO RAPIDO (FB)", "VIENTO RAPIDO (scraper)"),
 ]
 alias_df = pd.DataFrame(alias_data, columns=["Nombre en Facebook", "Nombre canónico (scraper)"])
 st.dataframe(alias_df, use_container_width=True, hide_index=True)
 
-st.caption("Nota: STAR eléctrico (FB) ≠ TRICICLOS HIBRIDOS STAR (scraper) → NO se fusionan (distinta propulsión).")
+st.caption(
+    "Nota: STAR eléctrico (FB) ≠ STAR híbrido (scraper) → NO se fusionan "
+    "(la propulsión forma parte de la identidad). Tampoco se fusionan "
+    "OIM / OIM PASAJE, ni DDS-OD (marca KIVITOVA, modelo distinto)."
+)
+
+st.markdown("---")
+
+# ======= IDENTIDAD =======
+st.header("5️⃣ Identidad del producto (limpieza de nombres)")
+
+st.markdown("""
+El campo `modelo` es la **identidad** del producto: es la clave con la que se
+agrupan los anuncios de distintas fuentes. Los nombres vienen de las webs, así
+que se normalizan en el **origen** (`codes/norm_modelo.py` + la tabla curada
+`Data/modelos_canonicos.json`); el JSONL crudo ya sale limpio.
+""")
+
+identidad_data = [
+    ("Genéricos de categoría", "TRICICLO(S), ELÉCTRICO(S), HÍBRIDO(S), DE COMBUSTION, DE CARGA, PASAJEROS"),
+    ("Marketing / estado", "DISPONIBLE, MAS GRANDE, MEJOR PRECIO, PANEL SOLAR, FOTOVOLTAICO"),
+    ("Specs (ya en otros campos)", "72V, 85AH, 1500W, LITHIUM, LIFEPO4, MOTOR, BATERÍA"),
+    ("Sin nombre de modelo", "`modelo` = null y la identidad pasa a la MARCA (CHILWEE, CYT, MAF, KIVITOVA…)"),
+    ("Mismo nombre, producto distinto", "Se separan con sufijo de variante y se cuentan aparte (OIM / OIM PASAJE, E-CARGO 80AH / 60AH / 100AH)"),
+    ("Propulsión", "Forma parte de la identidad: mismo nombre + distinta propulsión = productos distintos"),
+]
+st.dataframe(pd.DataFrame(identidad_data, columns=["Qué se quita / decide", "Regla"]),
+             use_container_width=True, hide_index=True)
+
+st.caption(
+    "La tabla canónica (`Data/modelos_canonicos.json`) se genera con "
+    "`python3 codes/crear_canonicos.py` y es la fuente de verdad: si se edita "
+    "un JSONL a mano, la siguiente pasada del scraper lo sobrescribe."
+)

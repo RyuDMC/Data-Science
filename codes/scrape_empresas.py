@@ -54,6 +54,11 @@ from bs4 import BeautifulSoup
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import scrape_triciclos as st  # noqa: E402
+from norm_modelo import (  # noqa: E402
+    canonizar_registro,
+    cargar_canonicos,
+    url_excluido,
+)
 
 DATA_DIR = st.DATA_DIR
 OUT_DIR = DATA_DIR / "empresas"
@@ -435,11 +440,25 @@ def main(argv):
         except Exception as e:
             print(f"  ERROR {clave}: {type(e).__name__}: {e}")
             continue
+        # Normalización de la identidad del producto (decisión del usuario,
+        # 2026-10-19): la tabla curada manda; lo que no esté en ella se
+        # resuelve con la regla de codes/norm_modelo.py.
+        canon = cargar_canonicos()
+        salida_recs, a_revisar = [], []
+        for r in recs:
+            if url_excluido(r.get("url"), canon):
+                continue
+            canonizar_registro(r, canon)
+            if r.pop("_estado_norm", "heuristico") == "revisar":
+                a_revisar.append((r.get("modelo"), r.get("marca"), r.get("url")))
+            salida_recs.append(r)
         salida = OUT_DIR / f"{clave}.jsonl"
         with open(salida, "w", encoding="utf-8") as f:
-            for r in recs:
+            for r in salida_recs:
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
-        print(f"  -> {len(recs)} registros en {salida}")
+        print(f"  -> {len(salida_recs)} registros en {salida}")
+        for mo, ma, u in a_revisar:
+            print(f"     REVISAR: {mo!r} / {ma!r} <- {u}")
 
     if not solo:
         print(f"\n=== Fin. Datasets por empresa en {OUT_DIR} ===")
