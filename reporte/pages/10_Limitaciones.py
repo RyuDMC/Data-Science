@@ -44,7 +44,7 @@ limitaciones = pd.DataFrame({
     ],
     "Qué significa": [
         "Anuncios y catálogos miden **oferta declarada**, no triciclos rodando. Un modelo muy anunciado puede no ser el más común en calle.",
-        "42 modelos en el ranking (41 nombres distintos: el STAR aparece en dos propulsiones) de 70 anuncios online + 21 fichas empresas. Muchos modelos con n=1. Scores con n_criterios < 5 son poco fiables.",
+        "42 modelos en el ranking (41 nombres distintos: el STAR aparece en dos propulsiones) de 70 anuncios online + 22 fichas empresas. Muchos modelos con n=1. Scores con n_criterios < 5 son poco fiables.",
         "Fuentes: clasificados (Revolico), tiendas WooCommerce, Telegram, Facebook. No cubren mercado informal completo ni todas las MIPYMEs.",
         "El único dato de **circulación real** (inventario 15 municipios) está **pendiente** (0 observaciones). Sin él, no podemos validar 'el más común'.",
         "Catálogo oficial VEDCA no disponible desde 2024. Cobertura vía Telegram/islagrande es parcial y con precios EUR históricos.",
@@ -76,6 +76,7 @@ pendientes = pd.DataFrame({
         "Batería Wh: elyerromenu no lee '72v/58ah' (barra)",
         "Nombres de modelo: curar acubaenvioscargo (3 fichas)",
         "Marca 'MAGIC BIKE' en un triciclo eléctrico: sin respaldo en la ficha",
+        "Nombres repetidos en catálogos de empresas (misma identidad, distintas configuraciones)",
     ],
     "Estado": [
         "✅ Integrado como 6ª fuente (parse_fb.py) — ranking recalculado",
@@ -85,10 +86,11 @@ pendientes = pd.DataFrame({
         "⏳ KikiHabana lo excluyó como 'carrito 4 ruedas'. ¿Es triciclo? ¿Rescatar?",
         "⏳ Wix bloquea scraping. Solo modelo+precio. ¿Mantener o descartar?",
         "⏳ Kivitova queda sin V/Ah. Mejora menor detectada en diario.",
-        "⏳ Sus títulos siguen con el nombre crudo ('TRICICLO FLY RACING MOTOR 1500W...')",
+        "✅ Curado por el usuario: FLY RACING / RACING. Se recuperó además el 4º producto del catálogo (Fly Racing 2027, 'Próximamente')",
         "⏳ Declarada en la ficha, pero la ficha solo menciona 1800 W y 72 V. ¿Confirmar?",
+        "⏳ 3 'E-CARGO MZ PRODUCTS' (60/80/100 Ah) y 2 'FLY RACING' (1500/2000 W) comparten nombre. En las tablas son fichas separadas; si el dataset de empresas entrara al scoring se agregarían",
     ],
-    "Prioridad": ["ALTA", "BAJA", "MEDIA", "ALTA", "BAJA", "BAJA", "BAJA", "MEDIA", "MEDIA"]
+    "Prioridad": ["ALTA", "BAJA", "MEDIA", "ALTA", "BAJA", "BAJA", "BAJA", "BAJA", "MEDIA", "MEDIA"]
 })
 
 st.dataframe(pendientes, use_container_width=True, hide_index=True)
@@ -172,7 +174,7 @@ st.markdown("""
 |---------|--------|---------------------|-----------|-------|
 | `anuncios_triciclos.jsonl` | 5 scrapers | 2026-10-19 | 41 | vedca.cu caído; 1 excluido por el usuario |
 | `anuncios_facebook.jsonl` | parse_fb.py | 2026-10-19 | 29 | 1 excluido (Artemisa) |
-| `empresas_*.jsonl` (4) | scrape_empresas.py | 2026-10-19 | 21 | MZ 200cc = híbrido |
+| `empresas_*.jsonl` (4) | scrape_empresas.py | 2026-10-19 | 22 | MZ 200cc = híbrido; +1 producto acuba |
 | `modelos_canonicos.json` | **curado a mano** | 2026-10-19 | 90 productos | Fuente de verdad de la identidad |
 | `score_modelos.csv` | analisis.py | 2026-10-19 | 42 filas (41 nombres) | Recalculado tras la limpieza de nombres |
 | `registro_ubicaciones.csv` | **CAMPO** | **PENDIENTE** | 0 | 15 municipios, 8h |

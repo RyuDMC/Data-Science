@@ -474,3 +474,27 @@ Fuente del protocolo: `Prompts/Journaling Prompt.md`.
 - **Etiquetas:** curacion-manual, identidad-de-producto, modelos-canonicos, norm-modelo, none-fantasma, repuestos-proxy, fusion-por-propulsion, scraper-en-origen, idempotencia, mrcuba-url-compartida
 
 ---
+
+### Entrada de diario
+
+- **Fecha/contexto:** 2026-10-19 — sesión en opencode (sesión 7, continuación). El usuario corrigió **otros** errores a mano en los datos limpios de empresas (5 commits: `cc4e7fe`, `04f2b14`, `17a4764`, `461059a`, `afd83b0`) y pide revisar
+- **Tarea:** Revisar las correcciones del usuario en `Data/clean_data/*empresas*.jsonl` y dejarlas integradas en el pipeline (tabla canónica + scraper), sin que la próxima pasada las revierta
+- **Acción(es):**
+  1. **Qué cambió el usuario**: en `acubaenvioscargo.jsonl` → `modelo` "FLY RACING" y `marca` "RACING" (2 fichas) y `modelo` null + `marca` "RACING" (la 3ª); en `mzproducts.jsonl` → **revirtió** las 3 separaciones de variante que yo había hecho: los tres "E-CARGO 80AH/60AH/100AH MZ PRODUCTS" vuelven a ser "E-CARGO MZ PRODUCTS" (la capacidad ya está en su campo `bateria_ah`). En un commit intermedio dejó un JSON roto (`"modelo": "null,`) que corrigió en el siguiente
+  2. **Riesgo detectado y corregido**: la tabla canónica aún tenía mis sufijos de variante → la próxima migración habría **revertido** su curaduría. Actualizado `codes/crear_canonicos.py`: fuera los 3 overrides de E-CARGO (con nota de por qué), añadida la lista `OVERRIDES` (nombres fijados a mano **aunque el producto aún no esté en `clean_data`**), `acubaenvioscargo` sale de `SIN_CURAR`
+  3. **Data gap encontrado en el scraper**: la categoría de A Cuba Envíos Cargo tiene **4** productos y solo se capturaban 3. El 4º ("Triciclo Fly Racing 2027", $4.580) está "Próximamente" → **no tiene botón de compra**, así que no hay `add-to-cart=<id>` y el scraper no podía identificarlo (el id es la clave del producto). Verificado en el HTML vivo (4 `.wd-product-wrapper`, 3 ids)
+  4. **Corregido `scrape_empresas.py`**: (a) si no hay id de carrito, se usa el **permalink** del producto (`/tienda/...`) como URL; (b) "Próximamente" se comprueba **antes** que "En stock" (el producto aparece con las dos etiquetas y no es comprable); (c) si el título no dice el tipo, la **categoría** ("Triciclos Eléctricos") da la propulsión → `electrico` en vez de `indeterminado`
+  5. **Re-scrape solo de acuba** (sitio accesible): 3 fichas con los nombres del usuario + la 4ª recuperada ("FLY RACING 2027" / RACING / eléctrico / $4.580 / "Próximamente"). Precios de las 3 anteriores **sin cambios**
+  6. Migración aplicada (`norm_modelo.py --migrar`): `clean_data/` reproduce la curaduría del usuario y `Data/empresas/` (el crudo) queda alineado. **Idempotente**: `--check` → 0 cambios. `analisis.py` sin cambios (las empresas siguen fuera del scoring)
+  7. **Reporte**: cifras de empresas 21 → **22** fichas (`app.py`, `2_Metodo.py`, `9_Empresas.py`, `10_Limitaciones.py`); nuevo pendiente: nombres repetidos en empresas (3 E-CARGO, 2 FLY RACING) que se agregarían si el dataset entrara al scoring
+  8. Verificado: `AppTest` 11/11 sin excepciones y **servidor real** 11/11 OK
+- **Resultado:** La curaduría del usuario (2ª tanda) integrada en la tabla canónica; el pipeline ya no la revierte. Se recupera un producto que faltaba (Fly Racing 2027) y se corrigen dos errores del scraper (identificación por permalink, disponibilidad "Próximamente"). Nada commiteado
+- **Error/éxito:** Éxito. Dos cosas que fallaron y se corrigieron: (1) mi tabla canónica habría revertido la curaduría del usuario (se avisó comparando el estado del repo con la tabla antes de migrar); (2) el override del producto nuevo no entraba en la tabla porque la tabla se construye desde `clean_data` y ese producto aún no estaba ahí → los overrides manuales se añaden siempre, haya o no registro
+- **Lección:** Cuando el usuario corrige a mano, hay que **comparar sus cambios con la tabla canónica ANTES de migrar**: la tabla es lo que manda y se genera desde `clean_data`, así que cualquier cambio manual no refletido ahí se pierde en la siguiente pasada. Y un producto sin botón de compra no es un producto "faltante": es un producto que hay que identificar por otra vía (permalink) y whose estado ("Próximamente") hay que leer antes que "En stock"
+- **Próxima vez:**
+  1. El usuario debe revisar el nuevo registro "FLY RACING 2027" (nombre y marca puestos por mí siguiendo su regla; las specs no están en la web: sin motor ni batería) y decidir si `Data/empresas/` entra o no en el scoring
+  2. Sigue pendiente: la marca "MAGIC BIKE" del eléctrico de cabina de Casalinda (no está en la ficha; la ficha declara "Carga máxima 650 KG" y está en `null`)
+  3. Heredados: trabajo de campo, `precio_texto_usd`, conflicto C400, `use_container_width` → `width="stretch"`, `vedca.cu` caído, análisis de sensibilidad ±25%, página de `fuentes_justificacion.md` en `2_Metodo.py`
+- **Etiquetas:** curacion-manual, acubaenvioscargo, fly-racing, producto-que-faltaba, permalink, proximamente, scraping-acuba, tabla-canonica, override, idempotencia, e-cargo-revertido
+
+---

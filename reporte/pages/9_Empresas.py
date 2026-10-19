@@ -1,5 +1,5 @@
 """
-Página 9: Empresas — 21 fichas de catálogos.
+Página 9: Empresas — 22 fichas de catálogos.
 """
 
 import os as _os

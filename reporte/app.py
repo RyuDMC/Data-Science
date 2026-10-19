@@ -41,7 +41,7 @@ integrando **tres fuentes de evidencia**:
 | Fuente | Qué mide | Registros | Modelos únicos |
 |--------|----------|-----------|----------------|
 | **Anuncios online** | Oferta y competencia de precios | 70 | 42 |
-| **Catálogos de empresas** | Oferta formal y disponibilidad | 21 | 21 |
+| **Catálogos de empresas** | Oferta formal y disponibilidad | 22 | 22 |
 | **Trabajo de campo** | Circulación real (inventario municipal) | 0* | 0* |
 
 *Pendiente de ejecución (3 rutas × 5 municipios, ~8h).
@@ -59,7 +59,7 @@ Usa el **menú lateral** (☰) para ir a cada sección:
 6. **🎯 Contendientes** — Top por grupo + radar de criterios
 7. **✅ Mejor opción** — Recomendación por escenario
 8. **🗺️ Trabajo de campo** — Protocolo y placeholders
-9. **🏢 Empresas** — 21 fichas de catálogos
+9. **🏢 Empresas** — 22 fichas de catálogos
 10. **⚠️ Limitaciones** — Qué no sabemos y por qué
 
 ---

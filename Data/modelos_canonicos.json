@@ -223,14 +223,14 @@
       "opciones": [
         {
           "marca": "Hercules",
-          "match": "HÉRCULES SOLAR 72V 85AH",
+          "match": "",
           "modelo": null,
           "origen": "curado",
           "propulsion": "electrico"
         },
         {
           "marca": "Tiger",
-          "match": "TIGER HÍBRIDO",
+          "match": "",
           "modelo": null,
           "origen": "curado",
           "propulsion": "hibrido"
@@ -273,19 +273,24 @@
       "origen": "curado"
     },
     "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=14938": {
-      "marca": null,
-      "modelo": "TRICICLO MOTOR 1500 WATT BATERÍA 72V80AMP LITHIUM",
+      "marca": "RACING",
+      "modelo": null,
       "origen": "curado"
     },
     "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=16463": {
-      "marca": null,
-      "modelo": "TRICICLO FLY RACING MOTOR 1500W BATERÍA 72V80AMP",
+      "marca": "RACING",
+      "modelo": "FLY RACING",
       "origen": "curado"
     },
     "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=17270": {
-      "marca": null,
-      "modelo": "TRICICLO FLY RACING MOTOR 2000W BATERÍA 72V 160AMP",
+      "marca": "RACING",
+      "modelo": "FLY RACING",
       "origen": "curado"
+    },
+    "https://www.acubaenvioscargo.com/tienda/transporte/triciclos-electricos/triciclo-fly-racing-2027/": {
+      "marca": "RACING",
+      "modelo": "FLY RACING 2027",
+      "origen": "manual"
     },
     "https://www.facebook.com/groups/1137682268538035/permalink/1406393771666882/": {
       "marca": "TOPMAQ",
@@ -439,8 +444,8 @@
     },
     "https://www.mzproducts.com/producto/triciclo-electrico-100a-mz-products-cargo/": {
       "marca": "MZ PRODUCTS",
-      "modelo": "E-CARGO 100AH MZ PRODUCTS",
-      "origen": "variante"
+      "modelo": "E-CARGO MZ PRODUCTS",
+      "origen": "curado"
     },
     "https://www.mzproducts.com/producto/triciclo-electrico-72v-100ah-e-cargo-ultra-mz-products/": {
       "marca": "MZ PRODUCTS",
@@ -449,8 +454,8 @@
     },
     "https://www.mzproducts.com/producto/triciclo-electrico-72v-60-ah-2500w-mz-products/": {
       "marca": "MZ PRODUCTS",
-      "modelo": "E-CARGO 60AH MZ PRODUCTS",
-      "origen": "variante"
+      "modelo": "E-CARGO MZ PRODUCTS",
+      "origen": "curado"
     },
     "https://www.mzproducts.com/producto/triciclo-electrico-72v-80ah-e-cargo-ultra-mz-products/": {
       "marca": "MZ PRODUCTS",
@@ -459,8 +464,8 @@
     },
     "https://www.mzproducts.com/producto/triciclo-electrico-72v-80ah-mz-products-cargo/": {
       "marca": "MZ PRODUCTS",
-      "modelo": "E-CARGO 80AH MZ PRODUCTS",
-      "origen": "variante"
+      "modelo": "E-CARGO MZ PRODUCTS",
+      "origen": "curado"
     },
     "https://www.mzproducts.com/producto/triciclo-electrico-combustion-200cc-mz-products-c-runer/": {
       "marca": "MZ PRODUCTS",
@@ -468,10 +473,6 @@
       "origen": "curado"
     }
   },
-  "sin_curar": {
-    "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=14938": "acubaenvioscargo.jsonl",
-    "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=16463": "acubaenvioscargo.jsonl",
-    "https://www.acubaenvioscargo.com/categoria-producto/transporte/triciclos-electricos/?add-to-cart=17270": "acubaenvioscargo.jsonl"
-  },
+  "sin_curar": {},
   "version": "2026-10-19"
 }

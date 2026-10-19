@@ -42,8 +42,8 @@ fuentes = pd.DataFrame({
         "Oferta formal, disponibilidad, specs de fabricante",
         "Circulación real observada en calle"
     ],
-    "Registros": [70, 21, 0],
-    "Modelos únicos": [41, 21, 0],
+    "Registros": [70, 22, 0],
+    "Modelos únicos": [41, 22, 0],
     "Cobertura": [
         "6 fuentes: elyerromenu, islagrande, vedca_telegram, casalindashop, cubancargos, Facebook",
         "4 empresas: KikiHabana, MZ Products, A Cuba Envíos Cargo, Mr Cuba",
